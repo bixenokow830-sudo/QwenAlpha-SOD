@@ -724,17 +724,19 @@ S9 消融、泛化、失败分析与论文材料
 通过条件：所有负例均拒绝启动，正例只看到一个 `cuda:0`。  
 安全暂停点：包装器、测试结果、哈希和恢复状态均已固化；下一步为 S0.5。
 
-#### S0.5 建立暂停恢复单元测试
+#### S0.5 建立暂停恢复单元测试（✅ 已完成：2026-10-27）
 
-- [ ] 训练 10 step；
-- [ ] 第 6 step 创建 `PAUSE_REQUESTED`；
-- [ ] 确认 step 6 后安全退出；
-- [ ] `--resume-dry-run` 显示下一步为 step 7；
-- [ ] 恢复到 step 10；
-- [ ] 连续训练和暂停恢复训练的最终参数差异处于容忍范围内。
+- [x] 训练 10 step；
+- [x] 第 6 step 创建 `PAUSE_REQUESTED`；
+- [x] 确认 step 6 后安全退出；
+- [x] `--resume-dry-run` 显示下一步为 step 7；
+- [x] 恢复到 step 10；
+- [x] 连续训练和暂停恢复训练的最终参数差异处于容忍范围内。
 
+执行结论：**✅ Passed**。连续 10-step 运行与 step 6 暂停、step 7 恢复的运行均到达 step 10；dry-run 明确输出 `next_step=7` 且未修改 checkpoint。模型、优化器、调度器、Python/NumPy/PyTorch CPU/PyTorch CUDA RNG、采样顺序、数据游标与 loss 历史全部一致，19 个张量的最大绝对差为 `0.0`，低于 `1e-7` 容忍阈值。测试结束后 GPU 1 无遗留进程且项目锁可重新获取。本地报告见 `paper/QwenAlpha-SOD_S0.5_暂停恢复单元测试报告.md`。  
 通过条件：模型、优化器、调度器、RNG 和数据游标均成功恢复。  
-完成标记：`state/done/S0.5.done.json`。
+完成标记：`state/done/S0.5.done.json`。  
+安全暂停点：S0 阶段全部完成；下一步为 S1.1 数据集只读盘点。
 
 ### B1：数据准备
 
