@@ -787,16 +787,20 @@ S9 消融、泛化、失败分析与论文材料
 输出：`datasets/derived/rgba/`、`manifests/s1_3_rgba_manifest.csv`、`manifests/S1.3_evidence.json`。  
 安全暂停点：`state/done/S1.3.done.json`；下一步为 S1.4。  
 
-#### S1.4 难例标签与 100/64 子集
+#### S1.4 难例标签与 100/64 子集（✅ 已完成：2026-10-27）
 
-- [ ] 计算目标面积比例、目标数量、周长、细长度和边界复杂度；
-- [ ] 标注小目标、多目标、细长、孔洞、低对比、阴影、空场景；
-- [ ] 分层选择 100 张 VAE 审计集；
-- [ ] 固定 48+16 的过拟合集；
-- [ ] 保存 sample ID，不复制成无法追踪的新数据。
+- [x] 计算目标面积比例、目标数量、周长、细长度和边界复杂度；
+- [x] 标注小目标、多目标、细长、孔洞、低对比、阴影、空场景；
+- [x] 分层选择 100 张 VAE 审计集；
+- [x] 固定 48+16 的过拟合集；
+- [x] 保存 sample ID，不复制成无法追踪的新数据。
 
 通过条件：子集覆盖所有指定难例类别且不含公开测试样本。
 
+
+执行结论：**✅ Passed**。4,000 个训练样本全部计算 8 项特征并按冻结规则分类（`configs/hard_example_rules.yaml`，seed 20261027）：small 660、large 166、multi 951、thin 1360、holes 167、low_contrast 235、shadow 301、empty 74。VAE 审计集 100 张（EORSSD 38 / ORSI-4199 51 / ORSSD 11），八类全覆盖（每类 ≥8）；过拟合集 48 训练 + 16 验证，全部来自 EORSSD 训练域，八类覆盖（每类 ≥2）。两集互斥（重叠 0），公开测试样本 0 张，仅保存 sample ID 与理由。两遍独立运行输出逐字节一致。  
+输出：`manifests/s1_4_features.csv`、`manifests/s1_4_subsets.csv`、`manifests/S1.4_evidence.json`。  
+安全暂停点：`state/done/S1.4.done.json`；**S1 全部完成**，下一步为 S2.1（需先指定 GPU 卡号并确认下载通路）。  
 ### B2：模型部署与表示上限
 
 #### S2.1 下载与校验 Qwen-Image-2.1
