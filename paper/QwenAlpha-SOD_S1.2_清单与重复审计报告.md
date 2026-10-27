@@ -1,7 +1,7 @@
 # QwenAlpha-SOD S1.2：清单固化与重复审计报告
 
 > 执行日期：2026-10-27
-> 结果：**产物完备，状态 `blocked`（等待重复样本处置决定）**
+> 结果：**Passed**（6,999 条记录；两次全量重算哈希一致；2 组训练/测试同图按方案 B 保留并在论文中声明）
 > 执行位置：远端 `wangsiyi`，`/data2/wangsiyi/qwenalpha-sod`
 > 操作性质：只读镜像上构建，未修改 `datasets/raw` 任何样本
 
@@ -90,13 +90,13 @@
 
 对 S9 的独立影响（与 A/B/C 无关）：由于 ORSSD 与 EORSSD 部分同源，**不能把 `EORSSD→ORSSD` 或 `ORSSD→EORSSD` 作为严格跨数据集泛化证据**，除非先扣除重叠样本；ORSI-4199 与二者无完全相同图像，可作为主要外部验证集。
 
-## 7. 当前状态与下一步
+## 7. 收尾状态（最终）
 
-- `progress.yaml`：`step: S1.2`、`status: blocked`、`reason: train_test_duplicate_candidates_pending_user_decision`；
-- 未创建 `state/done/S1.2.done.json`（未通过不等于通过）；
-- `reports/NEXT_ACTION.md` 只保留一个动作：记录处置决定；
-- 若方案改变 manifest 内容，需重跑 `python qwenalpha_sod/data/build_manifests.py --verify-rerun` 并重新验收两次哈希一致；
-- 处置决定记录后，方可进入 S1.3（构建 RGBA 监督目标）。
+- `progress.yaml`：`step: S1.2`、`status: passed`、`reason: manifests_complete_and_duplicates_declared_by_decision`；
+- `state/done/S1.2.done.json` 已生成，12 个产物哈希逐一记录并复核；
+- `reports/NEXT_ACTION.md` 的下一唯一动作已指向 S1.3；
+- 方案 B 不改变样本，manifest 未重跑，`all_samples.csv` 哈希保持 `ba11c6c3…1446a0` 不变；
+- 处置记录见 `reports/S1.2_duplicate_decision.md`，远端提交 `c89ad8c`。
 
 ## 8. 处置决定（2026-10-27，已生效）
 
