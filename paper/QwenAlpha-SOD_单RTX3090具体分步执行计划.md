@@ -754,30 +754,38 @@ S9 消融、泛化、失败分析与论文材料
 输出：`reports/S1_inventory_<dataset>.json`。  
 安全暂停点：三套JSON、汇总JSON与 `state/done/S1.1.done.json` 已写入；下一步为S1.2。
 
-#### S1.2 固化 manifest 和 hash
+#### S1.2 固化 manifest 和 hash（✅ 已完成：2026-10-27）
 
-- [ ] 为每张输入和 GT 计算 SHA-256；
-- [ ] 写训练、内部验证、公开测试 manifest；
-- [ ] 检查 ORSSD/EORSSD 跨集相同和近重复；
-- [ ] manifest 按 sample ID 排序；
-- [ ] 生成 manifest 总 hash。
+- [x] 为每张输入和 GT 计算 SHA-256；
+- [x] 写训练、内部验证、公开测试 manifest；
+- [x] 检查 ORSSD/EORSSD 跨集相同和近重复；
+- [x] manifest 按 sample ID 排序；
+- [x] 生成 manifest 总 hash。
 
 中断恢复：按数据集和 shard 写 hash；已完成 shard 通过校验后跳过。  
 通过条件：同一 manifest 重跑 hash 完全一致。
 
-#### S1.3 构建 RGBA 标签
+执行结论：**✅ Passed**。6,999 对样本全部生成稳定 sample ID（`<dataset>/<split>/<stem>`）与 image/GT 双 SHA-256，30 个分片均可续跑；`all_samples.csv` 按 sample ID 排序，总哈希 `ba11c6c3…1446a0`，两遍全量重算结果完全一致。重复审计发现 2 组训练/测试完全同图（`EORSSD/test/0005 ≡ train/0003`，ORSSD 同位置同图）及 158 组 EORSSD↔ORSSD 同源图像；经用户确认按「保留并声明」处置，未删除或改写任何样本，论文中须披露。  
+输出：`manifests/` 七份 CSV、`manifests/S1.2_manifest_evidence.json`、`reports/S1.2_leakage_report.md`。  
+安全暂停点：`state/done/S1.2.done.json`；下一步为 S1.3。  
 
-- [ ] 读取 ORSI 和 GT；
-- [ ] 将 GT 规范为 `[0,1]` Alpha；
-- [ ] 计算 `RGB=ORSI×Alpha`；
-- [ ] 背景 RGB 清零；
-- [ ] 保存 RGBA PNG；
-- [ ] 重新读取 PNG，验证 Alpha 与 GT 像素一致；
-- [ ] 写样本级构建 manifest。
+#### S1.3 构建 RGBA 标签（✅ 已完成：2026-10-27）
+
+- [x] 读取 ORSI 和 GT；
+- [x] 将 GT 规范为 `[0,1]` Alpha；
+- [x] 计算 `RGB=ORSI×Alpha`；
+- [x] 背景 RGB 清零；
+- [x] 保存 RGBA PNG；
+- [x] 重新读取 PNG，验证 Alpha 与 GT 像素一致；
+- [x] 写样本级构建 manifest。
 
 分片建议：每 128 张一个 shard。  
 暂停点：任一 shard 完成、验证并写 `.done.json` 后。  
 恢复方式：只重做缺失或 hash 错误的 shard。
+
+执行结论：**✅ Passed**。4,000 个训练样本全部生成 RGBA（EORSSD 1400 / ORSSD 600 / ORSI-4199 2000），32 个分片、0 错误、输出 130.2 MB。写盘后重开文件校验：alpha 与原 GT 逐像素最大差为 0，alpha=0 处 RGB 非零像素为 0；独立复核重新哈希 4,000 个文件无差异，12 张分层抽样（含软掩码与空掩码）重算像素完全一致。89 个非二值 GT 保留软灰度、74 个空 GT 保留，均未阈值化或剔除。  
+输出：`datasets/derived/rgba/`、`manifests/s1_3_rgba_manifest.csv`、`manifests/S1.3_evidence.json`。  
+安全暂停点：`state/done/S1.3.done.json`；下一步为 S1.4。  
 
 #### S1.4 难例标签与 100/64 子集
 
