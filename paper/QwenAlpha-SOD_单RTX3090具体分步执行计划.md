@@ -692,18 +692,19 @@ S9 消融、泛化、失败分析与论文材料
 安全暂停点：目录清单和初始状态文件完成后。  
 输出：`reports/S0_directory_manifest.json`。
 
-#### S0.3 建立 Python 环境
+#### S0.3 建立 Python 环境（✅ 已完成：2026-10-27）
 
-- [ ] 记录 GPU 驱动和 CUDA 信息；
-- [ ] 创建项目独立环境；
-- [ ] 安装 PyTorch 后先验证单卡；
-- [ ] 安装 Qwen/Diffusers/DiffSynth 相关依赖；
-- [ ] 确认 segmented-attention 修复存在；
-- [ ] 写 `environment.lock.txt` 和 `pip_freeze.txt`。
+- [x] 记录 GPU 驱动和 CUDA 信息；
+- [x] 创建项目独立环境；
+- [x] 安装 PyTorch 后先验证单卡；
+- [x] 安装 Qwen/Diffusers/DiffSynth 相关依赖；
+- [x] 确认 segmented-attention 修复存在；
+- [x] 写 `environment.lock.txt` 和 `pip_freeze.txt`。
 
+执行结论：**✅ Passed**。Python 3.11 独立环境位于 `/data2/wangsiyi/envs/qwenalpha-sod`；在新 SSH 进程中固定 `CUDA_VISIBLE_DEVICES=1` 后，PyTorch 仅识别一张 RTX 3090，核心库与 `QwenImage21Pipeline` 均可导入。DiffSynth-Studio 固定到提交 `e5a44c42776978457b61d51d595a1f6746c3d87a`，已核验分段 SDPA 路径存在且 `use_flex_attention=False`。本地核验记录见 `paper/QwenAlpha-SOD_S0.3_Python环境建立报告.md`。  
 通过条件：核心库全部可导入，环境重开后仍可导入。  
-失败处理：一次只修改一个依赖版本，并把失败组合记录到 `reports/S0_dependency_failures.md`。  
-安全暂停点：每次依赖组合验证后。
+失败处理：首次安装因系统 `/tmp` 空间不足失败；未改变依赖版本，仅将 `TMPDIR` 切换到 `/data2/wangsiyi/tmp/pip` 后成功，详见远端 `reports/S0_dependency_failures.md`。  
+安全暂停点：环境锁、冻结清单和 `state/done/S0.3.done.json` 已写入；下一步为 S0.4。
 
 #### S0.4 实现单卡运行包装器
 
