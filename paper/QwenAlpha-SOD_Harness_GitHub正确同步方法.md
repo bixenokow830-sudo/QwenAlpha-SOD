@@ -38,7 +38,7 @@ git push --dry-run：成功
 ## 2. 不可违反的同步约束
 
 - 只允许同步到 `https://github.com/bixenokow830-sudo/QwenAlpha-SOD.git`；
-- 必须保留 `sync-qwenalpha-artifacts-once.ps1` 的 QwenAlpha allowlist 和凭据扫描；
+- 必须保留 `sync-qwenalpha-artifacts-once.ps1` 的 QwenAlpha allowlist 和凭据扫描；白名单包含根目录 `AGENTS.md`、QwenAlpha-SOD 论文文档及 PDF；
 - 不得提交数据集、权重、checkpoint、`runs/`、`tmp/`、缓存、密钥、Token 或第三方论文；
 - 不得把失败内容改投其他仓库；
 - 不得创建 scheduler、watcher、轮询循环或后台持续同步；
