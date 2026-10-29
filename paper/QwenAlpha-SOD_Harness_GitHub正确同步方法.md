@@ -1,7 +1,7 @@
 # QwenAlpha-SOD：Harness 环境下的 GitHub 正确同步方法
 
-版本：v1.0  
-日期：2026-10-27  
+版本：v1.1  
+日期：2026-10-29  
 适用环境：Windows PowerShell 5.1、DSH/Harness 便携 Git、系统 Git 未安装  
 唯一允许的远端：`https://github.com/bixenokow830-sudo/QwenAlpha-SOD.git`
 
@@ -57,9 +57,9 @@ git push --dry-run：成功
 ```powershell
 $ErrorActionPreference = 'Stop'
 
-$workspace = 'D:\OneDrive\Desktop\my paper'
-$syncScript = 'D:\OneDrive\Desktop\my paper\sync-qwenalpha-artifacts-once.ps1'
-$repo = 'D:\OneDrive\Desktop\QwenAlpha-SOD'
+$workspace = 'D:\桌面\CSCD\Qwenalpha-SOD'
+$syncScript = Join-Path $workspace 'workspace-tools\sync-qwenalpha-artifacts-once.ps1'
+$repo = $workspace
 $remoteUrl = 'https://github.com/bixenokow830-sudo/QwenAlpha-SOD.git'
 $proxy = 'http://127.0.0.1:7890'
 
@@ -213,8 +213,8 @@ Harness 应在一次前台 PowerShell 会话中执行第 3 节完整脚本，并
 运行前先确认：
 
 ```powershell
-Test-Path -LiteralPath 'D:\OneDrive\Desktop\my paper\sync-qwenalpha-artifacts-once.ps1'
-Test-Path -LiteralPath 'D:\OneDrive\Desktop\QwenAlpha-SOD\.git'
+Test-Path -LiteralPath 'D:\桌面\CSCD\Qwenalpha-SOD\workspace-tools\sync-qwenalpha-artifacts-once.ps1'
+Test-Path -LiteralPath 'D:\桌面\CSCD\Qwenalpha-SOD\.git'
 ```
 
 运行结束只报告以下非敏感信息：
