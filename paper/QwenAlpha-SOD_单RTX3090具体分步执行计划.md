@@ -807,14 +807,16 @@ S9 消融、泛化、失败分析与论文材料
 
 #### S2.1 下载与校验 Qwen-Image-2.1
 
-- [ ] 权重仅保存到 `/data2/wangsiyi/models/`；
-- [ ] 支持断点续传；
-- [ ] 下载完成后记录文件大小和 hash；
-- [ ] 验证模型配置、DiT、Qwen3-VL 和 VAE 文件齐全；
-- [ ] 不把权重加入公开仓库。
+- [x] 权重仅保存到 `/data2/wangsiyi/models/`；
+- [x] 支持断点续传；
+- [x] 下载完成后记录文件大小和 hash；
+- [x] 验证模型配置、DiT、Qwen3-VL 和 VAE 文件齐全；
+- [x] 不把权重加入公开仓库。
 
 安全暂停点：每个权重分片完成后。  
 恢复：使用原下载工具续传，不删除已验证分片。
+
+执行结论：**✅ Passed（2026-10-29 19:19:53）**。`Qwen/Qwen-Image-2.1` 已保存至 `/data2/wangsiyi/models/Qwen-Image-2.1`；29 个普通文件共 `33,134,789,600` 字节。16 个 JSON、7 个 safetensors 头、text encoder/transformer 权重索引、全部必需组件及 `QwenImage21Pipeline` 本地配置均通过校验，并生成 29 条逐文件 SHA-256。校验未使用 GPU。证据：`reports/S2.1_model_download_manifest.json`、`reports/S2.1_model_files.sha256`、`state/done/S2.1.done.json`。下一步为 S2.2，等待用户明确启动。
 
 #### S2.2 8 张 CPU-offload 推理
 

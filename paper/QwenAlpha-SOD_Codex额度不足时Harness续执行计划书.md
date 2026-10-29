@@ -41,19 +41,19 @@ Harness 接管时必须遵循以下优先级：
   - 人工审计集：100。
   - overfit 子集：训练 48、验证 16。
 
-### 2.2 当前正在执行：S2.1 模型下载与本地校验
+### 2.2 最新完成：S2.1 模型下载与本地校验
 
 - 官方模型：`Qwen/Qwen-Image-2.1`。
 - Hugging Face 固定提交：`d26bb61231c349cf6b7896fa83353113880e1ba3`。
-- 下载通道：ModelScope，revision 为 `master`；完成后必须用逐文件 SHA-256 固化本次实际快照。
-- 预期清单：35 个条目，文件总字节数 `33,134,789,600`。
+- 下载通道：ModelScope，revision 为 `master`；已用逐文件 SHA-256 固化本次实际快照。
+- 下载清单：29 个普通文件（另有 6 个组件目录），文件总字节数 `33,134,789,600`。
 - 模型目录：`/data2/wangsiyi/models/Qwen-Image-2.1`。
 - 缓存目录：`/data2/wangsiyi/cache/modelscope`。
-- 后台会话：`tmux` 会话 `qas_s2_1_download`。
-- 下载脚本：`/data2/wangsiyi/qwenalpha-sod/monitor/download_s2_1.py`。
-- 日志：`/data2/wangsiyi/qwenalpha-sod/monitor/s2_1.log`。
+- 完成标记：`/data2/wangsiyi/qwenalpha-sod/state/done/S2.1.done.json`。
+- 证据：`reports/S2.1_model_download_manifest.json` 与 `reports/S2.1_model_files.sha256`。
+- 校验结果：16 个 JSON、7 个 safetensors、权重索引、必需组件及 diffusers 本地 pipeline 配置全部通过。
 - 监控状态：`/data2/wangsiyi/qwenalpha-sod/monitor/status.json`。
-- 当前步骤不占用 GPU。
+- S2.1 未占用 GPU；下一步是 S2.2 8 张单 GPU CPU-offload 推理，等待用户明确启动。
 
 接管者必须先读取真实状态，不得依据本段文字直接断言 S2.1 仍在下载或已经完成。
 
