@@ -22,7 +22,7 @@ Harness 接管时必须遵循以下优先级：
 1. 用户在当前会话中的最新要求，以及仓库根目录 `AGENTS.md`。
 2. 远端状态文件、完成标记、日志和实际产物。
 3. 本文中的 `当前进度快照` 与 `NEXT_ACTION`。
-4. `paper/QwenAlpha-SOD_详细步骤执行计划书.md`。
+4. `paper/QwenAlpha-SOD_单RTX3090具体分步执行计划.md`。
 5. 历史聊天记录和旧版计划。
 
 若文档与远端状态冲突，以远端可验证事实为准；先修正文档，不得为了符合文档而重跑已通过任务。
@@ -224,7 +224,7 @@ SSH：ssh wangsiyi
 
 先完整阅读：
 1. paper/QwenAlpha-SOD_Codex额度不足时Harness续执行计划书.md
-2. paper/QwenAlpha-SOD_详细步骤执行计划书.md
+2. paper/QwenAlpha-SOD_单RTX3090具体分步执行计划.md
 3. 仓库根目录 AGENTS.md（文件名使用复数形式）
 
 然后用说明书中的“最低成本冷启动”命令读取远端真实状态。不要仅依据文档推断进度，不要重复已通过任务。
