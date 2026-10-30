@@ -10,7 +10,7 @@ This file applies to the entire repository. Harness and other execution agents m
 
 ## Execution contract
 
-- Read `paper/QwenAlpha-SOD_Codex额度不足时Harness续执行计划书.md` and `paper/QwenAlpha-SOD_单RTX3090具体分步执行计划.md` before continuing the research plan.
+- Read `paper/QwenAlpha-SOD_Codex额度不足时Harness续执行计划书.md`, `paper/QwenAlpha-SOD_Harness与Codex共用进度说明书.md`, `paper/QwenAlpha-SOD_单RTX3090具体分步执行计划.md`, and `paper/QwenAlpha-SOD_非全监督主路线详细计划书.md` before continuing the research plan.
 - Treat the user’s latest instruction as authoritative. Use remote state files, done markers, logs, and actual artifacts as the source of truth for progress.
 - Execute only the single atomic step requested by the user. After verification and state updates, stop and report; do not automatically start the next step.
 - Never repeat a step that already has valid completion evidence.
