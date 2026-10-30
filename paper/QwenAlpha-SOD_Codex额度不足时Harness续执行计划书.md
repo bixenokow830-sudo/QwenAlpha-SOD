@@ -4,7 +4,7 @@
 
 **更新日期：** 2026-10-29
 
-**本地工作区：** `D:\桌面\CSCD\Qwenalpha-SOD`
+**本地工作区：** `D:\BaiduSyncdisk\CSCD\Qwenalpha-SOD`
 
 **SSH 别名：** `wangsiyi`
 
@@ -217,7 +217,7 @@ S2.1 通过后将 `NEXT_ACTION` 指向 S2.2，但不得自动启动 GPU 测试�
 ```text
 请接管 QwenAlpha-SOD 的后续执行。
 
-本地工作区：D:\桌面\CSCD\Qwenalpha-SOD
+本地工作区：D:\BaiduSyncdisk\CSCD\Qwenalpha-SOD
 SSH：ssh wangsiyi
 远端项目：/data2/wangsiyi/qwenalpha-sod
 远端所有写入只能发生在 /data2/wangsiyi；禁止 sudo，禁止影响其他用户、进程和目录。

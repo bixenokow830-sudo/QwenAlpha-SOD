@@ -2,6 +2,12 @@
 
 This file applies to the entire repository. Harness and other execution agents must read it before taking any action.
 
+## Local workspace
+
+- Current Windows workspace: `D:\BaiduSyncdisk\CSCD\Qwenalpha-SOD`.
+- Resolve repository-relative paths from this root. Do not use the former `D:\桌面\CSCD\Qwenalpha-SOD` path.
+- The repository is inside a synchronization folder. Do not rely on Baidu Sync for Git operations, do not edit `.git` manually, and do not place model weights, datasets, caches, runs, or checkpoints in this local workspace.
+
 ## Execution contract
 
 - Read `paper/QwenAlpha-SOD_Codex额度不足时Harness续执行计划书.md` and `paper/QwenAlpha-SOD_单RTX3090具体分步执行计划.md` before continuing the research plan.

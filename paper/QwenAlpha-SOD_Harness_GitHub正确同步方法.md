@@ -57,7 +57,7 @@ git push --dry-run：成功
 ```powershell
 $ErrorActionPreference = 'Stop'
 
-$workspace = 'D:\桌面\CSCD\Qwenalpha-SOD'
+$workspace = 'D:\BaiduSyncdisk\CSCD\Qwenalpha-SOD'
 $syncScript = Join-Path $workspace 'workspace-tools\sync-qwenalpha-artifacts-once.ps1'
 $repo = $workspace
 $remoteUrl = 'https://github.com/bixenokow830-sudo/QwenAlpha-SOD.git'
@@ -213,8 +213,8 @@ Harness 应在一次前台 PowerShell 会话中执行第 3 节完整脚本，并
 运行前先确认：
 
 ```powershell
-Test-Path -LiteralPath 'D:\桌面\CSCD\Qwenalpha-SOD\workspace-tools\sync-qwenalpha-artifacts-once.ps1'
-Test-Path -LiteralPath 'D:\桌面\CSCD\Qwenalpha-SOD\.git'
+Test-Path -LiteralPath 'D:\BaiduSyncdisk\CSCD\Qwenalpha-SOD\workspace-tools\sync-qwenalpha-artifacts-once.ps1'
+Test-Path -LiteralPath 'D:\BaiduSyncdisk\CSCD\Qwenalpha-SOD\.git'
 ```
 
 运行结束只报告以下非敏感信息：
