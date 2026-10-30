@@ -1,8 +1,8 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v1.1
+**版本：** v1.2
 
-**更新时间：** 2026-10-30 19:00（Asia/Shanghai）
+**更新时间：** 2026-10-30 19:01（Asia/Shanghai）
 
 **维护规则：** 本文件是**活文档**。任何 agent 每完成一个原子步骤，必须在本文件 §11 变更日志追加一行，并同步更新 §0 速览、§2 进度表、§6 未决事项。**更新本文件是步骤收尾的一部分，不是可选项。**
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | S2.3 已判 **No-go**；S2.4 探针与分辨率配对已完成；**W1（100 张零样本开发基线）尚未跑** |
+| 项目现在在哪一步 | 原 Qwen VAE 主线 S2.3 已判 **No-go**；非全监督新路线 **W0 已通过**；W1（100张零样本开发基线）尚未跑 |
 | 最重要的一组数 | 零样本 P2@1024：**Sα 0.5900 / MAE 0.0322**（10 张配对）；表示上限 0.9643；传统方法约 0.90 |
-| 下一步唯一动作 | W1：在 100 张 `vae_audit` 上跑 P2@1024（约 2 小时，物理 GPU 0） |
+| 下一步唯一动作 | W1：在100张 `vae_audit` 上跑 P2@1024；启动前重新选择空闲物理 GPU，不沿用旧卡号 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -27,7 +27,7 @@
 
 | 项 | 值 |
 |---|---|
-| 本地工作区 | `D:\BaiduSyncdisk\CSCD\Qwenalpha-SOD`（**新路径**；旧副本 `D:\桌面\CSCD\Qwenalpha-SOD` 仍存在，未删） |
+| 本地工作区 | `D:\BaiduSyncdisk\CSCD\Qwenalpha-SOD`；旧路径当前只是指向新目录的兼容 Junction，不是第二份仓库 |
 | SSH | `ssh wangsiyi`（`10.101.1.254:19059`，需实验室网络或 VPN） |
 | 远端项目 | `/data2/wangsiyi/qwenalpha-sod` |
 | 远端允许写入根 | `/data2/wangsiyi`（该账号 HOME 也在此目录内） |
@@ -61,6 +61,7 @@
 | S2.3 | 原生 VAE Alpha 上限审计 → **No-go** | `reports/S2_VAE_NOGO.md`、`reports/S2.3_vae_audit*.json` |
 | S2.4（探针） | 提示词模板 P2 胜出；1024 与 352 配对完成 | `reports/S2.4_prompt_selection_352.json`、`reports/S2.4_prompt_selection_1024p2.json` |
 | 计划（非全监督主路线） | W0–W9 详细计划书 v1.0 已入仓 | `paper/QwenAlpha-SOD_非全监督主路线详细计划书.md`（commit `1840208`） |
+| W0 | 非全监督协议、数据角色与 dense-GT 防火墙冻结 | `reports/W0_protocol_and_gt_firewall.json`、`state/done/W0.done.json` |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
 
@@ -126,31 +127,27 @@
 3. `state/progress.yaml`、`state/done/*.json`、`state/history.jsonl`。
 4. `paper/` 下的计划书与协议。
 
-**已知滞后（必须知道，否则会被误导）：**
+**当前状态：**
 
-- `state/progress.yaml` 停在 **S2.3 nogo**（2026-10-29 19:53），未反映 S2.4 的探针/配对，也未反映 W 系列计划。
-- `reports/NEXT_ACTION.md` 停在 **S2.2 passed**（2026-10-29 19:45），内容已过期。
-- S2.4 目前**没有** done marker（它是诊断子步骤，W1 跑完才收口）。
-- W0–W9 尚无任何 `state/done/W*.done.json`。
-- 因此：**S2.4 的权威证据是 `reports/S2.4_*` 与本文件第 3.2 节；W 系列的权威定义是非全监督计划书，不是 progress.yaml。**
+- `state/progress.yaml` 已更新为 **W0 passed**。
+- `reports/NEXT_ACTION.md` 已更新为 W1：100张 P2@1024 零训练开发基线。
+- S2.4 探针没有独立 done marker；其权威证据仍是 `reports/S2.4_*` 与本文件第3.2节。
+- W0 的权威完成标记是 `state/done/W0.done.json`。
 
 ---
 
 ## 6. 未决事项（按优先级）
 
-1. **跑 W1（100 张零样本开发基线）**：P2@1024，GPU 0，约 2 小时。当前唯一阻塞项。
-2. **训练池剔除 110 张开发样本**：100 张 `vae_audit` + 10 张探针全部来自官方 train 划分，若"官方训练划分 = 主训练池"不排除它们，学生会见过开发样本，开发指标虚高。需在 manifest 写明剔除列表。
-3. **GapClosure 分母定义**：`S_full_reference` 到底是"传统方法最优值"还是"自跑全监督参照"，两者可差 0.02–0.03，足以改变"接近/显著缩小"的措辞等级。
-4. **主路线监督预算选择**（计划书 §12）：① 点监督 + 约 20% 难例涂鸦（推荐）；② 纯点监督；③ 严格零标注。决定后写入 `configs/weak_supervision/protocol_v1.yaml`。
-5. **SAM 与 DINOv2 权重下载与校验**：远端尚无，需要一次等价于 S2.1 的下载 + 逐文件 SHA-256，先定仓库与固定 revision。
-6. **产物命名统一**：W1 要求 `reports/W1_qwen_zero_shot_100.csv/json`，现有脚本输出 `S2.4_prompt_selection_*`。建议改脚本直接写 W1 名，避免两套文件名并存。
-7. **编号体系明确**：W 系列是否取代 S3 及以后（S3 缓存 / S4 100-step 冒烟 / S5 64 张过拟合）。W4 已复用 48+16 过拟合子集，两套 done marker 并存会语义冲突。
-8. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 在三个数据集上的指标，必须来自原文表格，不能凭记忆。
-9. **官方测试集评测计划**：100 张只是开发集，论文表格需在 EORSSD/ORSSD/ORSI-4199 官方测试集上一次性评测。
-10. **补更新状态文件**：`progress.yaml`、`reports/NEXT_ACTION.md`。
-11. **修正旧计划书冷启动命令**：仍指向 `state/progress.json` 与 `state/NEXT_ACTION.md`，实际是 `state/progress.yaml` 与 `reports/NEXT_ACTION.md`。
-12. **删除旧工作区副本** `D:\桌面\CSCD\Qwenalpha-SOD`（两份并存有分叉风险，删除需用户同意）。
-13. **把 `.codex-tmp/`、`archive/` 移出百度同步目录**。
+1. **跑 W1（100张零样本开发基线）**：P2@1024；启动前重新检查并选择空闲物理 GPU。当前唯一执行项。
+2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
+3. **SAM 与 DINOv2 权重下载与校验**：远端尚无，需要等价于 S2.1 的固定 revision 和逐文件 SHA-256。
+4. **产物命名统一**：W1 固定写 `reports/W1_qwen_zero_shot_100.csv/json`，不覆盖 S2.4 探针文件。
+5. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
+6. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
+7. **官方测试集评测计划**：100张只是开发集，论文表格需在三个官方测试集上一次性评测。
+8. **修正旧计划书冷启动命令**：旧文档仍有 `progress.json`/`state/NEXT_ACTION.md` 路径，实际是 `progress.yaml`/`reports/NEXT_ACTION.md`。
+9. **兼容 Junction 管理**：旧路径指向新工作区；待所有任务绑定新路径后再决定是否移除。
+10. **把 `.codex-tmp/`、`archive/` 移出百度同步目录**。
 
 ---
 
@@ -272,6 +269,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 |---|---|---|---|
 | 2026-10-30 18:40 | Harness | v1.0 | 初版：环境坑、S0–S2.4 进度、冻结协议、未决事项 |
 | 2026-10-30 19:00 | Harness | v1.1 | 纳入非全监督主路线计划书（W0–W9）；新增训练池剔除 110 张、GapClosure 分母、监督预算、SAM/DINOv2 下载、W1 产物命名、S/W 编号关系共 6 项未决；编号对照扩为 S+W 两套；加入本维护规则 |
+| 2026-10-30 19:01 | Codex | v1.2 | W0 通过：冻结6999样本角色与点监督+约20%难例涂鸦预算；训练池剔除110张开发样本，登记并阻断6999条 dense-GT 路径；状态与 NEXT_ACTION 更新到 W1 |
 
 ### 11.3 冲突处理
 
