@@ -1,8 +1,8 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v1.4
+**版本：** v1.5
 
-**更新时间：** 2026-10-30 19:05（Asia/Shanghai）
+**更新时间：** 2026-10-30 19:12（Asia/Shanghai）
 
 **维护规则：** 本文件是所有 agent 的**强制活文档**。任何 `running / paused / failed / nogo / passed` 状态、下一步、冻结协议或安全恢复点发生变化时，必须在同一原子步骤内更新本文件。完成步骤时须在 §11 变更日志追加一行，并同步更新 §0 速览、§2 进度表、§6 未决事项。长任务逐文件进度由 HTML 监控和日志承担，不为每个进度点提交本文。**未更新本文的步骤视为未收尾。**
 
@@ -139,6 +139,7 @@
 ## 6. 未决事项（按优先级）
 
 1. **跑 W1（100张零样本开发基线）**：P2@1024。**当前状态 `paused`**——2026-10-30 19:05 预检时 GPU 0 空闲 17049 MiB（< W1 实测峰值 19537 MiB），GPU 1 空闲 21001 MiB 但承载他人 `test.py`（3122 MiB，85%）。按规程不抢占、不共享，等空闲卡后重跑预检再启动。
+   - **脚本已就绪**：`scripts/s2_4_probe.py` 新增 `--samples audit`（冻结 100 张）、`--prefix`（输出 `W1_qwen_zero_shot_100.*`）、`--dry-run`（不加载模型校验路径）、config hash 与按数据集/小目标分组统计。冻结配置的 `config_hash = 78a61650…`（1024 / P2 / 100 张）。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **SAM 与 DINOv2 权重下载与校验**：远端尚无，需要等价于 S2.1 的固定 revision 和逐文件 SHA-256。
 4. **产物命名统一**：W1 固定写 `reports/W1_qwen_zero_shot_100.csv/json`，不覆盖 S2.4 探针文件。
@@ -199,9 +200,13 @@ bash scripts/run_single_gpu.sh 0 -- /data2/wangsiyi/envs/qwenalpha-sod/bin/pytho
 ```
 
 ```bash
-# 零样本基线（待跑）
-bash scripts/run_single_gpu.sh 0 -- /data2/wangsiyi/envs/qwenalpha-sod/bin/python \
-  scripts/s2_4_probe.py --output-resolution 1024 --variants P2 --tag baseline100
+# W1 零样本开发基线（脚本已就绪，等待空闲 GPU）
+cd /data2/wangsiyi/qwenalpha-sod
+bash scripts/run_single_gpu.sh <free_gpu> -- /data2/wangsiyi/envs/qwenalpha-sod/bin/python \
+  scripts/s2_4_probe.py --output-resolution 1024 --variants P2 \
+  --samples audit --prefix W1_qwen_zero_shot_100
+# 产物：reports/W1_qwen_zero_shot_100.{csv,json}、runs/W1_qwen_zero_shot_100/P2/
+# 不加载模型即可先校验路径：加 --dry-run，会打印 run_dir / csv / json / config_hash
 ```
 
 ```powershell
@@ -274,6 +279,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-10-30 19:01 | Codex | v1.2 | W0 通过：冻结6999样本角色与点监督+约20%难例涂鸦预算；训练池剔除110张开发样本，登记并阻断6999条 dense-GT 路径；状态与 NEXT_ACTION 更新到 W1 |
 | 2026-10-30 19:03 | Codex | v1.3 | 将共用说明书提升为所有 agent 的强制事务式进度入口：状态、下一步、协议或恢复点变化时同原子步骤回写；逐文件进度继续由 HTML 监控承担 |
 | 2026-10-30 19:05 | Harness | v1.4 | 尝试执行 W1，预检发现两张卡均被同一用户占用（GPU 0 空闲17049 MiB < 峰值19537 MiB；GPU 1 承载他人 test.py 85%），按规程记 `paused` 并禁用抢占/共享；progress.yaml、history、NEXT_ACTION、监控同步为 paused；W1 未启动、无产物 |
+| 2026-10-30 19:12 | Harness | v1.5 | W1 脚本就绪：新增 `--samples audit`（冻结100张）、`--prefix`（W1 命名）、`--dry-run`、config hash（`78a61650…`）与按数据集/小目标分组统计；CSV 增加 dataset/categories 列；dry-run 与探针回归均已验证，未写任何产物、未占 GPU |
 
 ### 11.3 冲突处理
 
