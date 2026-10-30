@@ -15,6 +15,15 @@ This file applies to the entire repository. Harness and other execution agents m
 - Execute only the single atomic step requested by the user. After verification and state updates, stop and report; do not automatically start the next step.
 - Never repeat a step that already has valid completion evidence.
 
+## Shared progress transaction
+
+- `paper/QwenAlpha-SOD_Harness与Codex共用进度说明书.md` is the mandatory live handoff document for every agent.
+- Read it before preflight. Do not rely on chat history as the current project state.
+- In the same atomic step that changes remote state to `running`, `paused`, `failed`, `nogo`, or `passed`, update the live document's quick status, progress table, unresolved items, version, timestamp, and changelog as applicable.
+- A completed step is not closed until remote state, `reports/NEXT_ACTION.md`, the monitor, and the live document agree with actual artifacts.
+- Long-running per-file or per-batch progress belongs in the HTML monitor and logs. Do not create a watcher, polling loop, or Git commit for every progress tick.
+- Resolve conflicts using this order: user instruction, actual artifacts/logs, remote state, live document, other plans. Record corrections in the live document instead of rewriting history silently.
+
 ## Remote host and isolation
 
 - Connect with `ssh wangsiyi`.

@@ -140,7 +140,7 @@ ssh -N -L 127.0.0.1:8765:127.0.0.1:8765 wangsiyi
 3. **执行**：长任务进入命名 `tmux` 会话；分片任务记录 shard、seed、checkpoint 和输出目录。
 4. **验收**：检查退出码、产物完整性、哈希/指标、日志错误和科学门禁。
 5. **提交状态**：验收通过后才创建 `state/done/<STEP>.done.json`；失败或暂停不得创建 done marker。
-6. **收尾**：清空或归档 active run，追加历史记录，更新 `progress.json`、`NEXT_ACTION.md`、监控页和本地文档。
+6. **收尾**：清空或归档 active run，追加历史记录，更新 `state/progress.yaml`、`reports/NEXT_ACTION.md`、监控页和 `paper/QwenAlpha-SOD_Harness与Codex共用进度说明书.md`。共用说明书须同步更新速览、进度表、未决事项、版本、时间和变更日志。
 7. **停止**：只汇报本步骤，不自动执行下一步。
 
 状态写入必须采用“临时文件 + 原子替换”，防止断电或中断留下半个 JSON。
@@ -225,15 +225,17 @@ SSH：ssh wangsiyi
 
 先完整阅读：
 1. paper/QwenAlpha-SOD_Codex额度不足时Harness续执行计划书.md
-2. paper/QwenAlpha-SOD_单RTX3090具体分步执行计划.md
-3. 仓库根目录 AGENTS.md（文件名使用复数形式）
+2. paper/QwenAlpha-SOD_Harness与Codex共用进度说明书.md
+3. paper/QwenAlpha-SOD_单RTX3090具体分步执行计划.md
+4. paper/QwenAlpha-SOD_非全监督主路线详细计划书.md
+5. 仓库根目录 AGENTS.md（文件名使用复数形式）
 
 然后用说明书中的“最低成本冷启动”命令读取远端真实状态。不要仅依据文档推断进度，不要重复已通过任务。
 
 先向我提交接管摘要：最后通过步骤、当前运行/暂停任务、安全恢复点、前置条件、唯一计划动作、验收标准、监控 URL。每一步启动前必须先更新并展示 http://127.0.0.1:8765/；长任务使用 tmux 和事件式等待，减少无意义轮询与 token 消耗。
 
 本次只执行我指定的原子步骤：<在这里填写步骤或“从 NEXT_ACTION 继续一个步骤”>。
-通过后更新远端状态、done marker、NEXT_ACTION、监控页和相关本地文档，然后停止并汇报。不得自动进入下一步。
+任何 `running / paused / failed / nogo / passed` 状态变化都要在同一原子步骤内回写共用进度说明书；长任务的逐文件进度只写监控页和日志。通过后更新远端状态、done marker、NEXT_ACTION、监控页和共用进度说明书，然后停止并汇报。不得自动进入下一步。
 ```
 
 ## 11. 最小交接报告模板
@@ -255,7 +257,7 @@ NEXT_ACTION：
 
 ## 12. 接管前检查表
 
-- [ ] 已读取用户最新要求、仓库根目录 `AGENTS.md` 和两份计划书。
+- [ ] 已读取用户最新要求、仓库根目录 `AGENTS.md`、共用进度说明书和当前路线计划书。
 - [ ] 已通过一次冷启动命令核对远端状态。
 - [ ] 已确认所有写入目标位于 `/data2/wangsiyi`。
 - [ ] 已确认不会影响其他用户或共享资源。
@@ -264,7 +266,7 @@ NEXT_ACTION：
 - [ ] 已确认现有任务不会被重复启动。
 - [ ] GPU 步骤已通过锁、显存和单卡检查；非 GPU 步骤未占用 GPU。
 - [ ] 已定义失败、暂停和恢复策略。
-- [ ] 完成后将更新状态、done marker、NEXT_ACTION、监控页与本地文档。
+- [ ] 任何状态变化均将在同一原子步骤内更新远端状态、NEXT_ACTION、监控页和共用进度说明书；完成时再写有效 done marker。
 
 ---
 
