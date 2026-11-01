@@ -1,8 +1,8 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v2.6
+**版本：** v2.8
 
-**更新时间：** 2026-11-01 14:49（Asia/Shanghai）
+**更新时间：** 2026-11-01 14:52（Asia/Shanghai）
 
 **维护规则：** 本文件是所有 agent 的**强制活文档**。任何 `running / paused / failed / nogo / passed` 状态、下一步、冻结协议或安全恢复点发生变化时，必须在同一原子步骤内更新本文件。完成步骤时须在 §11 变更日志追加一行，并同步更新 §0 速览、§2 进度表、§6 未决事项。长任务逐文件进度由 HTML 监控和日志承担，不为每个进度点提交本文。**未更新本文的步骤视为未收尾。**
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | 原 Qwen VAE 主线 S2.3 已判 **No-go**；非全监督新路线 **W0、W1、W2.0、W2.1、W2.2、W2.3 已通过**；W2.4 未启动 |
-| 最重要的一组数 | W1 Qwen-only：**Sα 0.5312 / MAE 0.0905 / Fmax 0.8930**；W2.3 SAM-only：**Sα 0.2957 / MAE 0.3086 / Fmax 0.6477 / Boundary-F 0.3864** |
-| 下一步唯一动作 | W2.4：在同一100张开发集上融合冻结 W1 Qwen 亮度先验与 W2.2 SAM 候选，与 W1 做配对比较；未经用户明确指令不启动 |
+| 项目现在在哪一步 | 原 Qwen VAE 主线 S2.3 已判 **No-go**；非全监督新路线 **W0、W1、W2.0–W2.4 已完成**；W2.4 技术验收通过，但 Qwen+SAM 科学 Go 门槛未通过；**W2.5 未启动** |
+| 最重要的一组数 | 同一 evaluator 重算 W1：**Sα 0.5333 / MAE 0.0903 / Boundary-F 0.5149**；W2.4 选中 `t10_l25`：**Sα 0.5408 / MAE 0.0912 / Fmax 0.8973 / Boundary-F 0.5014**，ΔSα **+0.0075** |
+| 下一步唯一动作 | 按计划执行 **W2.5 Qwen+SAM+DINOv2 一致性**；执行前需用户明确下令，不得扩展 W2.4 网格或事后修改规则 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -67,6 +67,7 @@
 | W2.1 | 单图 SAM 自动候选 + DINOv2 特征冒烟通过；SAM 11个候选，patch shape `[1,256,768]`，峰值5491 MiB | `reports/W2.1_smoke.json`、`state/done/W2.1.done.json`、`monitor/w2_1.log` |
 | W2.2 | 100张 SAM-only 候选生成通过；100/100 NPZ、10/10分片、失败0，共1988个候选，峰值5493 MiB | `reports/W2.2_sam_candidates.json`、`reports/W2.2_sam_candidates.sha256`、`state/done/W2.2.done.json` |
 | W2.3 | 冻结无GT规则的 SAM-only 聚合与100张开发评测通过；Sα 0.2957 / MAE 0.3086 / Fmax 0.6477 | `reports/W2.3_sam_only_baseline.json`、`reports/W2.3_sam_only_metrics.csv`、`state/done/W2.3.done.json` |
+| W2.4 | 12个预声明 Qwen+SAM 变体执行与验收通过；选中 `t10_l25`，但ΔSα +0.0075、MAE/Boundary-F均略退化，冻结科学 Go 门槛未通过 | `reports/W2.4_qwen_sam_fusion.json`、`reports/W2.4_qwen_sam_grid_metrics.csv`、`state/done/W2.4.done.json` |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
 
@@ -142,8 +143,9 @@
 
 **当前状态：**
 
-- `state/progress.yaml` 已更新为 **W2 / W2.3 passed**，当前无 active run。
-- W2.3 聚合配置在创建 evaluation-only GT manifest 前已冻结；聚合器未访问任何 dense GT，独立 evaluator 以 evaluation purpose 访问了100张开发 GT。验收字段极性命名 bug 已记录修正，预测和指标未改变。
+- `state/progress.yaml` 已更新为 **W2 / W2.4 passed**，无 active run，安全恢复点为 `state/done/W2.4.done.json`；本步未使用 GPU。
+- W2.4 预声明12变体：候选匹配阈值 `{0.05,0.10,0.20,0.30}` × 融合系数 `{0.25,0.50,0.75}`；固定选择目标 `J=Sα−MAE+0.1×Boundary-F`，配置 hash `d13a8a59…`。生成器未读 GT，独立 evaluator 访问恰好100张开发 GT。
+- 选中 `t10_l25`（阈值0.10，融合系数0.25）；同 evaluator 重算 W1 为 Sα 0.5333 / MAE 0.0903 / Boundary-F 0.5149，融合为 Sα 0.5408 / MAE 0.0912 / Boundary-F 0.5014，因此 W2.4 科学 Go 门槛失败。
 - S2.4 探针没有独立 done marker；其权威证据仍是 `reports/S2.4_*` 与本文件第3.2节。
 - W0 的权威完成标记是 `state/done/W0.done.json`。
 - W1 的权威完成标记是 `state/done/W1.done.json`，验收汇总是 `reports/W1_acceptance.json`。
@@ -152,7 +154,7 @@
 
 ## 6. 未决事项（按优先级）
 
-1. **W2.4 Qwen + SAM 融合原型**：用冻结 W1 亮度先验给 W2.2 SAM 候选提供显著语义，不修改 W1 或 SAM-only 基线；在同一100张开发集上评估与 W1 的配对差异。W2 最终 Go 条件仍是融合比 Qwen-only Sα 至少 +0.10，且 MAE、Boundary-F 不恶化。
+1. **W2.5 Qwen + SAM + DINOv2 一致性（未启动）**：W2.4 的 Qwen+SAM 选中变体 `t10_l25` 仅将 Sα 提高 +0.0075，且 MAE、Boundary-F 略退化，冻结 Go 门槛失败。保留全部结果且不扩展网格；W2 整体是否 No-go 需等计划内 DINOv2 阶段执行后再判定。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
 4. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
@@ -302,6 +304,8 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-01 14:45 | Codex | v2.4 | W2.2 通过：100/100 NPZ、10/10分片、失败0，共1988个 SAM 候选（均值19.88，范围1–65，零候选样本0）；逐文件 SHA-256、NPZ 重开、launcher 均通过，GPU 1 峰值5493 MiB，未读 GT；W2.3 未启动 |
 | 2026-11-01 14:48 | Codex | v2.5 | W2.3 启动：先冻结 SAM-only 无GT聚合规则（hash `b6933492…`），再创建 evaluation-only GT manifest；聚合器和 evaluator 为两个独立 CPU 进程，分别写访问审计，不根据评分回改规则 |
 | 2026-11-01 14:49 | Codex | v2.6 | W2.3 通过：SAM-only Sα 0.2957 / MAE 0.3086 / Fmax 0.6477 / Boundary-F 0.3864，相比 W1 的 ΔSα=-0.2355，明显更弱；聚合器未读 GT，独立 evaluator 仅访问100张开发 GT。验收字段命名 bug 已记录修正，未改预测或指标；W2.4 未启动 |
+| 2026-11-01 14:51 | Codex | v2.7 | W2.4 启动：冻结12个 Qwen+SAM 变体和选择目标 `J=Sα−MAE+0.1×Boundary-F`（hash `d13a8a59…`）；无GT生成器先产生融合结果，独立 evaluator 才读取100张开发 GT 选优与检查 Go 门槛，CPU-only |
+| 2026-11-01 14:52 | Codex | v2.8 | W2.4 技术验收通过、科学 Go 门槛未通过：选中 `t10_l25`，Sα 0.5333→0.5408（+0.0075），MAE 0.0903→0.0912，Boundary-F 0.5149→0.5014；生成器未读 GT，evaluator 仅访问100张开发 GT。网格冻结不扩展，W2.5 未启动 |
 
 ### 11.3 冲突处理
 
