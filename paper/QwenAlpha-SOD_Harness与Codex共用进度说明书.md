@@ -1,8 +1,8 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v1.9
+**版本：** v2.2
 
-**更新时间：** 2026-10-31 15:04（Asia/Shanghai）
+**更新时间：** 2026-11-01 14:33（Asia/Shanghai）
 
 **维护规则：** 本文件是所有 agent 的**强制活文档**。任何 `running / paused / failed / nogo / passed` 状态、下一步、冻结协议或安全恢复点发生变化时，必须在同一原子步骤内更新本文件。完成步骤时须在 §11 变更日志追加一行，并同步更新 §0 速览、§2 进度表、§6 未决事项。长任务逐文件进度由 HTML 监控和日志承担，不为每个进度点提交本文。**未更新本文的步骤视为未收尾。**
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | 原 Qwen VAE 主线 S2.3 已判 **No-go**；非全监督新路线 **W0、W1、W2.0 已通过**；**W2.1 因两张 GPU 均有他人计算进程而 `paused`** |
-| 最重要的一组数 | W1 零训练开发基线（100张 P2@1024）：**Sα 0.5312 / MAE 0.0905 / Fmax 0.8930**；峰值显存 19,594 MiB |
-| 下一步唯一动作 | 等用户明确重试 W2.1 后做一次新 GPU 预检；仅当某张 RTX 3090 无任何计算进程时，才经单卡 wrapper 启动单图冒烟 |
+| 项目现在在哪一步 | 原 Qwen VAE 主线 S2.3 已判 **No-go**；非全监督新路线 **W0、W1、W2.0、W2.1 已通过**；W2.2 未启动 |
+| 最重要的一组数 | W1（100张 P2@1024）：**Sα 0.5312 / MAE 0.0905 / Fmax 0.8930**；W2.1：SAM 11个候选、DINOv2 `[1,256,768]`，峰值显存 5,491 MiB |
+| 下一步唯一动作 | W2.2：冻结并在100张开发集上分片生成 SAM-only 自动候选；启动前重做 GPU 预检，未经用户明确指令不启动 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -64,7 +64,7 @@
 | W0 | 非全监督协议、数据角色与 dense-GT 防火墙冻结 | `reports/W0_protocol_and_gt_firewall.json`、`state/done/W0.done.json` |
 | W1 | 100张 P2@1024 零训练开发基线验收通过；100/100、失败0 | `reports/W1_acceptance.json`、`reports/W1_grayscale_predictions.sha256`、`state/done/W1.done.json` |
 | W2.0 | SAM ViT-H / DINOv2 ViT-B/14 官方权重冻结、下载与逐文件 SHA-256 校验通过；不占 GPU | `reports/W2.0_teacher_models.json`、`reports/W2.0_teacher_models.sha256`、`state/done/W2.0.done.json` |
-| W2.1（paused） | GPU 预检发现两卡均有他人计算进程；未占锁、未启动冒烟、无 done marker | `reports/W2.1_gpu_preflight_paused.json`、`monitor/w2_1.log` |
+| W2.1 | 单图 SAM 自动候选 + DINOv2 特征冒烟通过；SAM 11个候选，patch shape `[1,256,768]`，峰值5491 MiB | `reports/W2.1_smoke.json`、`state/done/W2.1.done.json`、`monitor/w2_1.log` |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
 
@@ -140,8 +140,8 @@
 
 **当前状态：**
 
-- `state/progress.yaml` 已更新为 **W2 / W2.1-preflight paused**，当前无 active run。
-- W2.1 的安全恢复点仍为 `state/done/W2.0.done.json`；未占用项目 GPU 锁，未加载 SAM / DINOv2，没有 W2.1 done marker。
+- `state/progress.yaml` 已更新为 **W2 / W2.1 passed**，当前无 active run。
+- W2.1 使用开发样本 `EORSSD/train/0982` 原图，未读取 GT；SAM 与 DINOv2 顺序加载。attempt1 兼容性失败已保留；attempt2（SAM float32 / DINOv2 float16）经 wrapper 通过，配置 hash `136f4323…`。
 - S2.4 探针没有独立 done marker；其权威证据仍是 `reports/S2.4_*` 与本文件第3.2节。
 - W0 的权威完成标记是 `state/done/W0.done.json`。
 - W1 的权威完成标记是 `state/done/W1.done.json`，验收汇总是 `reports/W1_acceptance.json`。
@@ -150,7 +150,7 @@
 
 ## 6. 未决事项（按优先级）
 
-1. **W2.1 单图 GPU 冒烟与峰值显存（paused）**：2026-10-31 15:04 预检时 GPU 0 有3个他人计算进程、仅余6663 MiB；GPU 1 有1个他人计算进程、仅余17089 MiB。不抢占、不共享；用户明确重试后先重做预检。资源可用时再分别加载 SAM / DINOv2，两教师不同时常驻 GPU，峰值必须 ≤22 GB。
+1. **W2.2 的100张 SAM-only 自动候选**：在冻结 `vae_audit` 开发集上分片运行 SAM float32，逐样本原子保存 masks / scores / boxes 和哈希；支持仅补 pending/failed shard，不读取 GT，峰值显存 ≤22 GB。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
 4. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
@@ -293,6 +293,9 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-10-31 14:56 | Codex | v1.7 | W2.0 启动：冻结官方 SAM ViT-H `87aecf0…` 与 DINOv2 ViT-B/14 `f9e44c8…`（Apache-2.0），仅下载 safetensors 与配置并做逐文件 SHA-256；不占 GPU，W2.1 未启动 |
 | 2026-10-31 15:02 | Codex | v1.8 | W2.0 通过：SAM ViT-H / DINOv2 ViT-B/14 共10个文件已通过字节数、JSON、safetensors 和 SHA-256 校验；最终总清单生成器的 `KeyError` 已从既有文件恢复并保留原日志，未重下、未占 GPU；W2.1 未启动 |
 | 2026-10-31 15:04 | Codex | v1.9 | W2.1 预检暂停：GPU 0 有3个他人计算进程（余额6663 MiB），GPU 1 有1个他人计算进程（余额17089 MiB）；未抢占、未共享、未占锁、未启动 GPU 任务，恢复点仍为 W2.0 done marker |
+| 2026-11-01 14:32 | Codex | v2.0 | W2.1 重试启动：GPU 1 无计算进程且有24121 MiB 空闲，已经单卡 wrapper 对 `EORSSD/train/0982` 原图顺序运行 SAM 自动候选与 DINOv2 特征冒烟；不读 GT，配置 hash `96022468…` |
+| 2026-11-01 14:32 | Codex | v2.1 | W2.1 attempt1 因 Transformers 5.17 SAM fp16 NMS 的 boxes/scores dtype 不一致退出，无有效产物；保留失败日志后重做 GPU 1 预检，attempt2 改为 SAM float32 / DINOv2 float16 顺序恢复，配置 hash `136f4323…` |
+| 2026-11-01 14:33 | Codex | v2.2 | W2.1 通过：SAM 生成11个候选，DINOv2 patch 特征 `[1,256,768]` 且全部 finite；两模型顺序加载，GPU 1 峰值5491 MiB，未读 GT；NPZ、launcher、日志与 done marker 均已验收，W2.2 未启动 |
 
 ### 11.3 冲突处理
 
