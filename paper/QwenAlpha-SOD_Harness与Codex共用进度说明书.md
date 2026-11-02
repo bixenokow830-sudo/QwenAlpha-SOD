@@ -1,8 +1,8 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v3.9
+**版本：** v4.0
 
-**更新时间：** 2026-11-02 18:52（Asia/Shanghai）
+**更新时间：** 2026-11-02 19:01（Asia/Shanghai）
 
 **维护规则：** 本文件是所有 agent 的**强制活文档**。任何 `running / paused / failed / nogo / passed` 状态、下一步、冻结协议或安全恢复点发生变化时，必须在同一原子步骤内更新本文件。完成步骤时须在 §11 变更日志追加一行，并同步更新 §0 速览、§2 进度表、§6 未决事项。长任务逐文件进度由 HTML 监控和日志承担，不为每个进度点提交本文。**未更新本文的步骤视为未收尾。**
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | 原 Qwen VAE 主线 S2.3 已判 **No-go**；非全监督新路线 **W0、W1、W2.0–W2.6 已完成**；**W3 标注文件已达100/100且机械验收通过；空场景模式已部署，暂停等待5张空场景人工复核** |
+| 项目现在在哪一步 | 原 Qwen VAE 主线 S2.3 已判 **No-go**；非全监督新路线 **W0、W1、W2.0–W2.6 已完成**；**W3 的100/100真实人工点标注已通过最终验收，暂停等待 SAM 点提示与三值伪标签子步骤** |
 | 最重要的一组数 | W2.6 GT-assisted 诊断：SAM 贪心联合 oracle **IoU 0.7293 / small 0.6503**；模拟点提示 **IoU 0.7532 / small 0.7891 / Sα 0.7773** |
-| 下一步唯一动作 | 用户在 `http://127.0.0.1:8766/` 复核5张标记“待空场景复核”的任务：确为空场景时勾选“空场景（仅背景）”并保存；复核完成后重跑 W3 验收，再启动 SAM 点提示与三值伪标签 |
+| 下一步唯一动作 | 用户明确下令后，执行 W3 SAM 点提示与三值伪标签生成；随后完成可视化审计和最差20张复核。当前不得创建 W3 done marker，也不得自动进入 W4 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -70,7 +70,7 @@
 | W2.4 | 12个预声明 Qwen+SAM 变体执行与验收通过；选中 `t10_l25`，但ΔSα +0.0075、MAE/Boundary-F均略退化，冻结科学 Go 门槛未通过 | `reports/W2.4_qwen_sam_fusion.json`、`reports/W2.4_qwen_sam_grid_metrics.csv`、`state/done/W2.4.done.json` |
 | W2.5 | 100张 DINOv2 特征与3个预声明变体验收通过；选中 `d75`，相比 W2.4 有小幅改善，但相比 W1 仅ΔSα +0.0120且 MAE/Boundary-F仍略差，冻结 W2 Go 门槛失败 | `reports/W2.5_qwen_sam_dino_fusion.json`、`reports/W2.5_selected_predictions.sha256`、`state/done/W2.5.done.json` |
 | W2.6 | GT-assisted 候选/点提示上限诊断通过；贪心 oracle IoU 0.7293（small 0.6503），模拟点提示 IoU 0.7532（small 0.7891），两项均过冻结门槛，推荐真实弱点阶段；该结果不是无监督成绩 | `reports/W2.6_sam_oracle_point_diagnostic.json`、`reports/W2.6_predictions.sha256`、`state/done/W2.6.done.json` |
-| W3（paused, 100/100） | 100份标注机械验收通过：任务ID无缺漏/重复、图像hash全匹配、格式有效，共662前景点+1353背景点；v2空场景协议与网页已部署（config hash `7f05d2ed…8990`），暂停等待5张 empty 场景复核；无 done marker、未启动 SAM 伪标签 | `reports/W3_task_freeze.json`、`reports/W3_annotation_tool_setup.json`、`state/active_run.json` |
+| W3（paused，人工标注验收 passed） | 100/100真实人工标注最终验收通过：662前景点+1353背景点，共2015点；任务覆盖、ID、图像hash、最少点数、GT/模拟点禁用全部通过。5张 empty-category 样本经用户复核后保留为非空显著场景，原坐标未改写；无 done marker、未启动 SAM 伪标签 | `reports/W3_human_annotation_acceptance.json`、`reports/W3_human_annotations.sha256`、`state/active_run.json` |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
 
@@ -146,13 +146,13 @@
 
 **当前状态：**
 
-- `state/progress.yaml` 已更新为 **W3 / human_annotation paused**，active run 为 `qas_w3_annotation`，标注服务 tmux 为 `qas_w3_annotator`。100/100机械验收通过；v2空场景协议已部署，允许 manifest-empty 任务以0前景+至少2背景保存，暂停等待5张人工复核。复核对象：`ORSSD/train/0523`、`ORSSD/train/0489`、`EORSSD/train/1982`、`EORSSD/train/1858`、`EORSSD/train/1874`。
+- `state/progress.yaml` 已更新为 **W3 / sam_point_prompts_pending paused**，active run 为 `qas_w3_annotation`。100/100真实人工点标注最终验收通过；报告 hash `ea312291…70b0`。5张 empty-category 样本经用户连续确认复核后均保留为非空显著场景，原始点击坐标未改写。下一安全点为 `reports/W3_human_annotation_acceptance.json`。
 - W2.4 预声明12变体：候选匹配阈值 `{0.05,0.10,0.20,0.30}` × 融合系数 `{0.25,0.50,0.75}`；固定选择目标 `J=Sα−MAE+0.1×Boundary-F`，配置 hash `d13a8a59…`。生成器未读 GT，独立 evaluator 访问恰好100张开发 GT。
 - 选中 `t10_l25`（阈值0.10，融合系数0.25）；同 evaluator 重算 W1 为 Sα 0.5333 / MAE 0.0903 / Boundary-F 0.5149，融合为 Sα 0.5408 / MAE 0.0912 / Boundary-F 0.5014，因此 W2.4 科学 Go 门槛失败。
 - W2.5 沿用 W2.4 的阈值0.10、融合系数0.25和选择目标，只新增 DINO 权重 `{0.25,0.50,0.75}`；配置 hash `94016d66…a5fd0`。生成器未读开发 GT，evaluator 恰好访问100张开发 GT。
 - W2.5 `d75` 相比 W2.4：Sα +0.0046、MAE -0.0006、Boundary-F +0.0052；相比 W1：Sα +0.0120、MAE +0.0002、Boundary-F -0.0082。因此 DINOv2 有小幅正效果，但不足以通过冻结 W2 门槛。
 - W2.6 明示使用开发 GT，仅用于路线诊断；100张共155个正点、200个每图可复用背景点，共355次唯一点击，截断目标面积为0。attempt1/2 均未产生样本结果，attempt3 完成300张预测和300行指标，全部哈希通过；配置 hash `9cb32055…f984`。
-- W3 配置 hash `ced360fd…5d76`；从 `weak_train_pool` 冻结 EORSSD/ORSI-4199/ORSSD = 34/51/15，并设置 small/thin/multi/shadow/low_contrast/holes/large/empty 覆盖下限。标注程序每张至少1个前景点、2个背景点并记录真实用时。
+- W3 初始配置 hash `ced360fd…5d76`；空场景兼容修订后的 v2 配置 hash `7f05d2ed…8990`。从 `weak_train_pool` 冻结 EORSSD/ORSI-4199/ORSSD = 34/51/15，并设置 small/thin/multi/shadow/low_contrast/holes/large/empty 覆盖下限。非空场景每张至少1个前景点、2个背景点；empty 模式允许0前景但仍需至少2背景点。
 - W3 任务 manifest hash `7e5e8896…05ab`；实际难例覆盖 empty 5 / holes 10 / large 10 / low_contrast 14 / multi 35 / shadow 16 / small 30 / thin 47。标注页为 `http://127.0.0.1:8766/`，只服务原图，少于1前景+2背景点时拒绝保存。
 - S2.4 探针没有独立 done marker；其权威证据仍是 `reports/S2.4_*` 与本文件第3.2节。
 - W0 的权威完成标记是 `state/done/W0.done.json`。
@@ -162,7 +162,7 @@
 
 ## 6. 未决事项（按优先级）
 
-1. **W3 A级100张真实弱点标注（paused, 100/100）**：100份文件机械验收通过，v2空场景模式已可用；用户需复核5张 empty 任务，确为空场景时勾选空场景并保存。复核通过前不创建 W3 done marker，不生成 SAM 点提示伪标签。
+1. **W3 SAM点提示与三值伪标签（pending）**：100份真实人工标注已验收；等待用户明确下令后运行 SAM 点提示、生成 foreground/background/ignore 三值伪标签、可视化审计并复核最差20张。完成这些验收前不创建 W3 done marker。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
 4. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
@@ -325,6 +325,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-02 18:26 | Codex | v3.7 | 恢复 W3 人工点标注：核验远端标注与监控服务仍在，实际已有2/100；复用冻结任务清单、已有标注和 `qas_w3_annotator`，重建本机8765/8766 SSH转发，并将 progress、active run、NEXT_ACTION 与监控统一为 running；无 GPU、无 W3 done marker |
 | 2026-11-02 18:48 | Codex | v3.8 | W3人工标注达到100/100；机械验收100份全通过（662前景点、1353背景点，ID/格式/图像hash无误），但发现5张empty任务均含旧UI强制的1–2个前景点，与“空场景只允许背景”协议冲突。状态安全暂停等待空场景复核，未启动GPU/SAM、未写W3 done |
 | 2026-11-02 18:52 | Codex | v3.9 | 部署W3空场景协议v2（hash `7f05d2ed…8990`）与网页：仅冻结为empty的任务可显式勾选空场景，以0前景+至少2背景保存；保留其余95份标注。服务HTTP与100/100清单验收通过，暂停等待5张人工复核，未启动GPU/SAM |
+| 2026-11-02 19:01 | Codex | v4.0 | W3真实人工点标注最终验收通过：100/100、662前景+1353背景，覆盖/ID/图像hash/最少点数/GT与模拟点禁用均通过；5张empty-category样本经用户连续确认后保留为非空显著场景，原点击未改写。生成验收报告与逐文件SHA-256，安全暂停等待SAM点提示；未写W3 done、未进入W4 |
 
 ### 11.3 冲突处理
 
