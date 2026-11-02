@@ -1,8 +1,8 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v4.2
+**版本：** v4.3
 
-**更新时间：** 2026-11-02 19:20（Asia/Shanghai）
+**更新时间：** 2026-11-02 19:26（Asia/Shanghai）
 
 **维护规则：** 本文件是所有 agent 的**强制活文档**。任何 `running / paused / failed / nogo / passed` 状态、下一步、冻结协议或安全恢复点发生变化时，必须在同一原子步骤内更新本文件。完成步骤时须在 §11 变更日志追加一行，并同步更新 §0 速览、§2 进度表、§6 未决事项。长任务逐文件进度由 HTML 监控和日志承担，不为每个进度点提交本文。**未更新本文的步骤视为未收尾。**
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | 原 Qwen VAE 主线 S2.3 已判 **No-go**；非全监督新路线 **W0、W1、W2.0–W2.6 已完成**；**W3 SAM点提示与三值伪标签技术验收通过，暂停等待worst-20人工审计** |
+| 项目现在在哪一步 | 原 Qwen VAE 主线 S2.3 已判 **No-go**；非全监督新路线 **W0、W1、W2.0–W2.6 已完成**；**W3 SAM/三值标签技术验收通过，worst-20人工审计网页已就绪，当前0/20** |
 | 最重要的一组数 | W3：100张全部生成；SAM predicted-IoU均值0.8825，原始mask点击一致率均值0.9915（88/100完全一致）；最终三值标签在2015/2015点击处一致，平均foreground/background/ignore占比=0.1000/0.8749/0.0251 |
-| 下一步唯一动作 | 人工审阅 `reports/W3_sam_point_worst20_contact_sheet.jpg` 与20张审计图；确认或修正后完成W3最终验收。不得创建W3 done或自动进入W4 |
+| 下一步唯一动作 | 用户在 `http://127.0.0.1:8767/` 对20张逐一选择“通过/需修正”；20/20后按结论进行W3最终验收或定向修正。不得创建W3 done或自动进入W4 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -70,7 +70,7 @@
 | W2.4 | 12个预声明 Qwen+SAM 变体执行与验收通过；选中 `t10_l25`，但ΔSα +0.0075、MAE/Boundary-F均略退化，冻结科学 Go 门槛未通过 | `reports/W2.4_qwen_sam_fusion.json`、`reports/W2.4_qwen_sam_grid_metrics.csv`、`state/done/W2.4.done.json` |
 | W2.5 | 100张 DINOv2 特征与3个预声明变体验收通过；选中 `d75`，相比 W2.4 有小幅改善，但相比 W1 仅ΔSα +0.0120且 MAE/Boundary-F仍略差，冻结 W2 Go 门槛失败 | `reports/W2.5_qwen_sam_dino_fusion.json`、`reports/W2.5_selected_predictions.sha256`、`state/done/W2.5.done.json` |
 | W2.6 | GT-assisted 候选/点提示上限诊断通过；贪心 oracle IoU 0.7293（small 0.6503），模拟点提示 IoU 0.7532（small 0.7891），两项均过冻结门槛，推荐真实弱点阶段；该结果不是无监督成绩 | `reports/W2.6_sam_oracle_point_diagnostic.json`、`reports/W2.6_predictions.sha256`、`state/done/W2.6.done.json` |
-| W3（paused，worst-20 review pending） | 100 prompt mask + 100三值NPZ + 100三值PNG + 100审计图全部生成，400项hash通过，访问审计201条且GT防火墙有效，GPU 1峰值5178 MiB。原始SAM有12张未完全满足点击，但最终三值标签2015/2015点击一致；技术验收通过，等待worst-20人工复核 | `reports/W3_sam_point_tristate.json`、`reports/W3_sam_point_acceptance_recovery.json`、`reports/W3_sam_point_outputs.sha256` |
+| W3（paused，worst-20 review 0/20） | 技术生成已通过；专用审计页 `127.0.0.1:8767` 已验收，逐张提供原图、叠加图、SAM二值mask与三值PNG，可保存accept/revise及问题类型。配置hash `410c2646…80e7`，不提供GT、不改写伪标签 | `reports/W3_sam_point_tristate.json`、`configs/weak_supervision/w3_worst20_review_v1.json`、`state/active_run.json` |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
 
@@ -146,7 +146,7 @@
 
 **当前状态：**
 
-- `state/progress.yaml` 已更新为 **W3 / worst20_review_pending paused**。SAM生成100/100完成，技术验收报告hash `ef689e47…a135`；GPU 1已回落到15 MiB。attempt1因错误要求“原始SAM mask必须命中全部点击”而退出2，但400份产物完整；保留失败报告后以CPU独立核验最终三值标签2015/2015点击一致、400项hash与201条访问审计，无GPU重跑、无输出改写。
+- `state/progress.yaml` 已更新为 **W3 / worst20_human_review paused**。审计服务器tmux为 `qas_w3_review`，URL为 `http://127.0.0.1:8767/`，当前0/20；review JSON原子保存到 `annotations/weak_supervision/W3_worst20_review`，仅服务原图与生成产物，禁止GT。技术生成安全点仍为 `reports/W3_sam_point_tristate.json`。
 - W2.4 预声明12变体：候选匹配阈值 `{0.05,0.10,0.20,0.30}` × 融合系数 `{0.25,0.50,0.75}`；固定选择目标 `J=Sα−MAE+0.1×Boundary-F`，配置 hash `d13a8a59…`。生成器未读 GT，独立 evaluator 访问恰好100张开发 GT。
 - 选中 `t10_l25`（阈值0.10，融合系数0.25）；同 evaluator 重算 W1 为 Sα 0.5333 / MAE 0.0903 / Boundary-F 0.5149，融合为 Sα 0.5408 / MAE 0.0912 / Boundary-F 0.5014，因此 W2.4 科学 Go 门槛失败。
 - W2.5 沿用 W2.4 的阈值0.10、融合系数0.25和选择目标，只新增 DINO 权重 `{0.25,0.50,0.75}`；配置 hash `94016d66…a5fd0`。生成器未读开发 GT，evaluator 恰好访问100张开发 GT。
@@ -162,7 +162,7 @@
 
 ## 6. 未决事项（按优先级）
 
-1. **W3 worst-20人工审计（pending）**：技术生成已通过；需审阅20张最弱审计图，重点包含12张原始SAM点击不完全一致样本。人工确认或修正后才能完成W3、创建done marker；当前不得进入W4。
+1. **W3 worst-20人工审计（0/20）**：用户需在 `http://127.0.0.1:8767/` 比较原图、叠加图、SAM mask和三值标签，逐张保存accept/revise；revise需标明漏目标、多余前景、对象错误、边界错误或其他。20/20前不得完成W3或进入W4。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
 4. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
@@ -328,6 +328,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-02 19:01 | Codex | v4.0 | W3真实人工点标注最终验收通过：100/100、662前景+1353背景，覆盖/ID/图像hash/最少点数/GT与模拟点禁用均通过；5张empty-category样本经用户连续确认后保留为非空显著场景，原点击未改写。生成验收报告与逐文件SHA-256，安全暂停等待SAM点提示；未写W3 done、未进入W4 |
 | 2026-11-02 19:13 | Codex | v4.1 | 启动W3 SAM点提示与三值伪标签：冻结无GT协议（hash `22170b74…3f084`），以真实2015个点击联合提示SAM并按点击一致性+SAM predicted-IoU选择multimask，腐蚀/膨胀边界带记ignore；GPU 1启动时无进程且空闲24121 MiB，单卡wrapper/tmux运行，GPU 0他人进程未触碰 |
 | 2026-11-02 19:20 | Codex | v4.2 | W3 SAM/三值生成技术验收通过：100×4类产物、400项hash、201条访问审计，最终标签2015/2015点击一致，GPU峰值5178 MiB并已释放。attempt1因误把原始SAM 100%点击一致设为硬门槛而退出2；失败报告保留，CPU修复仅重算验收、不重跑GPU/不改输出。88张原始SAM完全一致，12张进入worst-20待人工审计 |
+| 2026-11-02 19:26 | Codex | v4.3 | W3 worst-20审计工具就绪：冻结20张清单与review协议（hash `410c2646…80e7`），页面逐张显示原图/叠加图/SAM mask/三值PNG并原子保存accept或revise；四类媒体HTTP验收通过，当前0/20。工具不服务GT、不使用GPU、不修改伪标签，暂停等待人工结论 |
 
 ### 11.3 冲突处理
 
