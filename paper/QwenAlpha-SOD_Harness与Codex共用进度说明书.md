@@ -1,8 +1,8 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v3.6
+**版本：** v3.7
 
-**更新时间：** 2026-11-01 15:16（Asia/Shanghai）
+**更新时间：** 2026-11-02 18:26（Asia/Shanghai）
 
 **维护规则：** 本文件是所有 agent 的**强制活文档**。任何 `running / paused / failed / nogo / passed` 状态、下一步、冻结协议或安全恢复点发生变化时，必须在同一原子步骤内更新本文件。完成步骤时须在 §11 变更日志追加一行，并同步更新 §0 速览、§2 进度表、§6 未决事项。长任务逐文件进度由 HTML 监控和日志承担，不为每个进度点提交本文。**未更新本文的步骤视为未收尾。**
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | 原 Qwen VAE 主线 S2.3 已判 **No-go**；非全监督新路线 **W0、W1、W2.0–W2.6 已完成**；**W3 任务冻结与标注工具已验收，暂停等待100张真实人工点标注，当前0/100** |
+| 项目现在在哪一步 | 原 Qwen VAE 主线 S2.3 已判 **No-go**；非全监督新路线 **W0、W1、W2.0–W2.6 已完成**；**W3 人工点标注已恢复运行，当前2/100** |
 | 最重要的一组数 | W2.6 GT-assisted 诊断：SAM 贪心联合 oracle **IoU 0.7293 / small 0.6503**；模拟点提示 **IoU 0.7532 / small 0.7891 / Sα 0.7773** |
-| 下一步唯一动作 | 用户打开 `http://127.0.0.1:8766/` 完成100张真实前景/背景点标注；100/100后恢复 W3 验收、SAM 点提示与三值伪标签，不得以自动点替代 |
+| 下一步唯一动作 | 用户打开 `http://127.0.0.1:8766/` 从2/100继续完成真实前景/背景点标注；100/100后恢复 W3 验收、SAM 点提示与三值伪标签，不得以自动点替代 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -70,7 +70,7 @@
 | W2.4 | 12个预声明 Qwen+SAM 变体执行与验收通过；选中 `t10_l25`，但ΔSα +0.0075、MAE/Boundary-F均略退化，冻结科学 Go 门槛未通过 | `reports/W2.4_qwen_sam_fusion.json`、`reports/W2.4_qwen_sam_grid_metrics.csv`、`state/done/W2.4.done.json` |
 | W2.5 | 100张 DINOv2 特征与3个预声明变体验收通过；选中 `d75`，相比 W2.4 有小幅改善，但相比 W1 仅ΔSα +0.0120且 MAE/Boundary-F仍略差，冻结 W2 Go 门槛失败 | `reports/W2.5_qwen_sam_dino_fusion.json`、`reports/W2.5_selected_predictions.sha256`、`state/done/W2.5.done.json` |
 | W2.6 | GT-assisted 候选/点提示上限诊断通过；贪心 oracle IoU 0.7293（small 0.6503），模拟点提示 IoU 0.7532（small 0.7891），两项均过冻结门槛，推荐真实弱点阶段；该结果不是无监督成绩 | `reports/W2.6_sam_oracle_point_diagnostic.json`、`reports/W2.6_predictions.sha256`、`state/done/W2.6.done.json` |
-| W3（paused, 0/100） | 弱训练池100张 A级任务、配额、GT禁读与真实点标注网页已验收；当前暂停等待用户完成100张人工点击，无 done marker、未启动 SAM 伪标签 | `reports/W3_task_freeze.json`、`reports/W3_annotation_tool_setup.json`、`state/active_run.json` |
+| W3（running, 2/100） | 弱训练池100张 A级任务、配额、GT禁读与真实点标注网页已验收；2026-11-02复用原任务清单、已有标注和远端服务恢复人工点击，无 done marker、未启动 SAM 伪标签 | `reports/W3_task_freeze.json`、`reports/W3_annotation_tool_setup.json`、`state/active_run.json` |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
 
@@ -146,7 +146,7 @@
 
 **当前状态：**
 
-- `state/progress.yaml` 已更新为 **W3 / human_annotation paused**，active run 为 `qas_w3_annotation`，标注服务 tmux 为 `qas_w3_annotator`；安全恢复点为 `reports/W3_annotation_tool_setup.json`。
+- `state/progress.yaml` 已更新为 **W3 / human_annotation running**，active run 为 `qas_w3_annotation`，标注服务 tmux 为 `qas_w3_annotator`；2026-11-02恢复时实际产物为2/100，复用既有服务、任务清单和标注文件；安全恢复点为 `reports/W3_annotation_tool_setup.json`。
 - W2.4 预声明12变体：候选匹配阈值 `{0.05,0.10,0.20,0.30}` × 融合系数 `{0.25,0.50,0.75}`；固定选择目标 `J=Sα−MAE+0.1×Boundary-F`，配置 hash `d13a8a59…`。生成器未读 GT，独立 evaluator 访问恰好100张开发 GT。
 - 选中 `t10_l25`（阈值0.10，融合系数0.25）；同 evaluator 重算 W1 为 Sα 0.5333 / MAE 0.0903 / Boundary-F 0.5149，融合为 Sα 0.5408 / MAE 0.0912 / Boundary-F 0.5014，因此 W2.4 科学 Go 门槛失败。
 - W2.5 沿用 W2.4 的阈值0.10、融合系数0.25和选择目标，只新增 DINO 权重 `{0.25,0.50,0.75}`；配置 hash `94016d66…a5fd0`。生成器未读开发 GT，evaluator 恰好访问100张开发 GT。
@@ -162,7 +162,7 @@
 
 ## 6. 未决事项（按优先级）
 
-1. **W3 A级100张真实弱点标注（paused, 0/100）**：用户需在 `http://127.0.0.1:8766/` 只依据原图完成真实点击。服务保存坐标、标签、用时、标注者与图像 hash；100/100前不创建 W3 done marker，不生成 SAM 点提示伪标签。
+1. **W3 A级100张真实弱点标注（running, 2/100）**：用户需在 `http://127.0.0.1:8766/` 只依据原图继续真实点击。服务保存坐标、标签、用时、标注者与图像 hash；100/100前不创建 W3 done marker，不生成 SAM 点提示伪标签。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
 4. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
@@ -322,6 +322,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-01 15:11 | Codex | v3.4 | W2.6 通过：attempt3 完成300张诊断预测/300行指标/全部哈希；SAM 贪心 oracle IoU 0.7293（small 0.6503），模拟点提示 IoU 0.7532（small 0.7891）均过冻结门槛，推荐 W3 真实弱点阶段而非先替换 SAM。诊断使用100张开发 GT，不是无监督成绩；GPU 1 锁已释放，W3 未启动 |
 | 2026-11-01 15:14 | Codex | v3.5 | W3 setup 启动：冻结弱训练池100张数据集/难例配额与真实前景—背景点标注协议（hash `ced360fd…`），建立仅读原图的标注网页、原子保存、用时/点击审计与GT禁读约束；工具就绪后暂停等待真实人工标注，不伪造完成 |
 | 2026-11-01 15:16 | Codex | v3.6 | W3 setup 通过并暂停等待人工输入：冻结100张 `weak_train_pool` 任务（EORSSD/ORSI-4199/ORSSD=34/51/15，manifest hash `7e5e8896…`），难例配额和GT禁读验收通过；`127.0.0.1:8766` 标注服务及本地隧道可用，非法保存会被拒绝。当前0/100，无 W3 done marker，不自动伪造标注 |
+| 2026-11-02 18:26 | Codex | v3.7 | 恢复 W3 人工点标注：核验远端标注与监控服务仍在，实际已有2/100；复用冻结任务清单、已有标注和 `qas_w3_annotator`，重建本机8765/8766 SSH转发，并将 progress、active run、NEXT_ACTION 与监控统一为 running；无 GPU、无 W3 done marker |
 
 ### 11.3 冲突处理
 
