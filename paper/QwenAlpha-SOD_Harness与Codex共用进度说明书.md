@@ -1,8 +1,8 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v4.4
+**版本：** v4.5
 
-**更新时间：** 2026-11-02 19:44（Asia/Shanghai）
+**更新时间：** 2026-11-02 19:48（Asia/Shanghai）
 
 **维护规则：** 本文件是所有 agent 的**强制活文档**。任何 `running / paused / failed / nogo / passed` 状态、下一步、冻结协议或安全恢复点发生变化时，必须在同一原子步骤内更新本文件。完成步骤时须在 §11 变更日志追加一行，并同步更新 §0 速览、§2 进度表、§6 未决事项。长任务逐文件进度由 HTML 监控和日志承担，不为每个进度点提交本文。**未更新本文的步骤视为未收尾。**
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | 原 Qwen VAE 主线 S2.3 已判 **No-go**；非全监督新路线 **W0、W1、W2.0–W2.6 已完成**；**W3 worst-20人工审计已完成，7张通过、13张需定向修正** |
+| 项目现在在哪一步 | 原 Qwen VAE 主线 S2.3 已判 **No-go**；非全监督新路线 **W0、W1、W2.0–W2.6 已完成**；**W3 的13张定向人工修正网页已就绪，当前0/13** |
 | 最重要的一组数 | W3审计20/20：7 accept、13 revise；问题为11个extra-foreground和2个missed-object，其中4张明确为纯背景图。技术生成的100×4类产物仍完整，尚未静默改写任何标签 |
-| 下一步唯一动作 | 用户明确下令后，为13张冻结清单建立并执行定向修正，再复验worst-case与W3门槛。不得创建W3 done或自动进入W4 |
+| 下一步唯一动作 | 用户在 `http://127.0.0.1:8768/` 完成13张定向点修正/纯背景确认；13/13后仅重跑受影响的非空样本，并为纯背景样本生成全背景标签。不得进入W4 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -70,7 +70,7 @@
 | W2.4 | 12个预声明 Qwen+SAM 变体执行与验收通过；选中 `t10_l25`，但ΔSα +0.0075、MAE/Boundary-F均略退化，冻结科学 Go 门槛未通过 | `reports/W2.4_qwen_sam_fusion.json`、`reports/W2.4_qwen_sam_grid_metrics.csv`、`state/done/W2.4.done.json` |
 | W2.5 | 100张 DINOv2 特征与3个预声明变体验收通过；选中 `d75`，相比 W2.4 有小幅改善，但相比 W1 仅ΔSα +0.0120且 MAE/Boundary-F仍略差，冻结 W2 Go 门槛失败 | `reports/W2.5_qwen_sam_dino_fusion.json`、`reports/W2.5_selected_predictions.sha256`、`state/done/W2.5.done.json` |
 | W2.6 | GT-assisted 候选/点提示上限诊断通过；贪心 oracle IoU 0.7293（small 0.6503），模拟点提示 IoU 0.7532（small 0.7891），两项均过冻结门槛，推荐真实弱点阶段；该结果不是无监督成绩 | `reports/W2.6_sam_oracle_point_diagnostic.json`、`reports/W2.6_predictions.sha256`、`state/done/W2.6.done.json` |
-| W3（paused，targeted correction pending） | worst-20审计20/20完成：7 accept、13 revise；11个多余前景（含4张纯背景）和2个漏目标。复核记录与13张修正manifest已冻结，未使用GT、未改写伪标签、无done marker | `reports/W3_worst20_human_review.json`、`reports/W3_worst20_reviews.sha256`、`manifests/weak_supervision/w3_targeted_corrections_v1.csv` |
+| W3（paused，targeted correction 0/13） | 专用修正页 `127.0.0.1:8768` 已验收：左键加前/背景点、右键删除最近点，4张冻结纯背景可清空前景；修正记录单独原子保存，不覆盖原100份标注或现有伪标签。配置hash `4dfa505a…1816` | `configs/weak_supervision/w3_targeted_correction_v1.json`、`state/active_run.json` |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
 
@@ -146,7 +146,7 @@
 
 **当前状态：**
 
-- `state/progress.yaml` 已更新为 **W3 / targeted_correction_pending paused**。审计结果报告hash `c249ef32…a71e`，13张定向修正manifest hash `59c99a06…ccf8`。4张纯背景：`ORSSD/train/0523`、`EORSSD/train/1874`、`EORSSD/train/1982`、`EORSSD/train/1858`；另有2张河流末端漏检与7张其他多余前景。
+- `state/progress.yaml` 已更新为 **W3 / targeted_correction_annotation paused**。修正服务器tmux为 `qas_w3_correction`，URL `http://127.0.0.1:8768/`，当前0/13。4张纯背景可显式确认；其余样本需按review备注增删真实点。修正文件写入 `annotations/weak_supervision/W3_targeted_corrections`，原标注与伪标签保持不变。
 - W2.4 预声明12变体：候选匹配阈值 `{0.05,0.10,0.20,0.30}` × 融合系数 `{0.25,0.50,0.75}`；固定选择目标 `J=Sα−MAE+0.1×Boundary-F`，配置 hash `d13a8a59…`。生成器未读 GT，独立 evaluator 访问恰好100张开发 GT。
 - 选中 `t10_l25`（阈值0.10，融合系数0.25）；同 evaluator 重算 W1 为 Sα 0.5333 / MAE 0.0903 / Boundary-F 0.5149，融合为 Sα 0.5408 / MAE 0.0912 / Boundary-F 0.5014，因此 W2.4 科学 Go 门槛失败。
 - W2.5 沿用 W2.4 的阈值0.10、融合系数0.25和选择目标，只新增 DINO 权重 `{0.25,0.50,0.75}`；配置 hash `94016d66…a5fd0`。生成器未读开发 GT，evaluator 恰好访问100张开发 GT。
@@ -162,7 +162,7 @@
 
 ## 6. 未决事项（按优先级）
 
-1. **W3 13张定向修正（pending）**：冻结清单见 `manifests/weak_supervision/w3_targeted_corrections_v1.csv`。需先修正4张纯背景、2张漏目标与7张其他多余前景，再重新生成受影响标签并复验；未经明确指令不得启动，修正通过前不得完成W3或进入W4。
+1. **W3 13张定向修正（0/13）**：用户在 `http://127.0.0.1:8768/` 操作。纯背景勾选对应选项；漏目标补前景点；多余前景在错误区域补背景点或右键删除错误点。13/13前不重跑SAM，不完成W3或进入W4。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
 4. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
@@ -330,6 +330,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-02 19:20 | Codex | v4.2 | W3 SAM/三值生成技术验收通过：100×4类产物、400项hash、201条访问审计，最终标签2015/2015点击一致，GPU峰值5178 MiB并已释放。attempt1因误把原始SAM 100%点击一致设为硬门槛而退出2；失败报告保留，CPU修复仅重算验收、不重跑GPU/不改输出。88张原始SAM完全一致，12张进入worst-20待人工审计 |
 | 2026-11-02 19:26 | Codex | v4.3 | W3 worst-20审计工具就绪：冻结20张清单与review协议（hash `410c2646…80e7`），页面逐张显示原图/叠加图/SAM mask/三值PNG并原子保存accept或revise；四类媒体HTTP验收通过，当前0/20。工具不服务GT、不使用GPU、不修改伪标签，暂停等待人工结论 |
 | 2026-11-02 19:44 | Codex | v4.4 | W3 worst-20人工审计完成：20/20，7 accept、13 revise；11个extra-foreground（其中4张明确纯背景）与2个missed-object。20份review hash与13张定向修正manifest已冻结；未使用GT、未静默改写伪标签、未写W3 done，安全暂停等待定向修正指令 |
+| 2026-11-02 19:48 | Codex | v4.5 | W3 13张定向修正工具就绪：冻结修正协议（hash `4dfa505a…1816`），页面提供原图+当前错误结果、点增删与4张纯背景模式；四类关键接口验收通过，当前0/13。修正记录独立保存，不覆盖原标注/伪标签，不使用GPU/GT，暂停等待人工输入 |
 
 ### 11.3 冲突处理
 
