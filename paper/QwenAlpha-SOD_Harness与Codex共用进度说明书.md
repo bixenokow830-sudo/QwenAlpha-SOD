@@ -1,8 +1,8 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v5.0
+**版本：** v5.1
 
-**更新时间：** 2026-11-03 11:03（Asia/Shanghai）
+**更新时间：** 2026-11-03 11:42（Asia/Shanghai）
 
 **维护规则：** 本文件是所有 agent 的**强制活文档**。任何 `running / paused / failed / nogo / passed` 状态、下一步、冻结协议或安全恢复点发生变化时，必须在同一原子步骤内更新本文件。完成步骤时须在 §11 变更日志追加一行，并同步更新 §0 速览、§2 进度表、§6 未决事项。长任务逐文件进度由 HTML 监控和日志承担，不为每个进度点提交本文。**未更新本文的步骤视为未收尾。**
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | 原 Qwen VAE 主线 S2.3 已判 **No-go**；非全监督新路线 **W0、W1、W2.0–W2.6 已完成**；**W3 第二轮4张修正已重生成并通过技术验收，暂停等待最终无GT人工复核（0/4）** |
-| 最重要的一组数 | 第二轮退出码0，仅4张对应的16个产物变化，其余384个hash保持不变；16/16定向hash与400/400全体hash通过，GPU峰值5180 MiB并已释放。4张原始SAM点击一致率均值0.862567、完全一致0/4，因此必须复核 |
-| 下一步唯一动作 | 打开 `http://127.0.0.1:8771/`，不看GT复核4张第二轮结果并保存“通过/仍需修正”。完成且问题清零前不得写W3 done或进入W4 |
+| 项目现在在哪一步 | 原 Qwen VAE 主线 S2.3 已判 **No-go**；非全监督新路线 **W0、W1、W2.0–W2.6、W3 已完成**；W3以“96张点+三值伪标签、4张仅点监督”的混合监督方式通过，**W4未启动** |
+| 最重要的一组数 | 100/100真实点标注保留；96张允许三值伪标签训练，4张两轮修正后仍失败并冻结为 `persistent_sam_failure`，机器清单明确禁止其进入伪标签损失。最终16/16定向hash与400/400全体hash通过，未使用训练GT |
+| 下一步唯一动作 | 等待用户明确要求执行W4；届时从96张伪标签合格样本中构建64张过拟合集，4张point-only样本不得进入三值伪标签损失 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -70,7 +70,7 @@
 | W2.4 | 12个预声明 Qwen+SAM 变体执行与验收通过；选中 `t10_l25`，但ΔSα +0.0075、MAE/Boundary-F均略退化，冻结科学 Go 门槛未通过 | `reports/W2.4_qwen_sam_fusion.json`、`reports/W2.4_qwen_sam_grid_metrics.csv`、`state/done/W2.4.done.json` |
 | W2.5 | 100张 DINOv2 特征与3个预声明变体验收通过；选中 `d75`，相比 W2.4 有小幅改善，但相比 W1 仅ΔSα +0.0120且 MAE/Boundary-F仍略差，冻结 W2 Go 门槛失败 | `reports/W2.5_qwen_sam_dino_fusion.json`、`reports/W2.5_selected_predictions.sha256`、`state/done/W2.5.done.json` |
 | W2.6 | GT-assisted 候选/点提示上限诊断通过；贪心 oracle IoU 0.7293（small 0.6503），模拟点提示 IoU 0.7532（small 0.7891），两项均过冻结门槛，推荐真实弱点阶段；该结果不是无监督成绩 | `reports/W2.6_sam_oracle_point_diagnostic.json`、`reports/W2.6_predictions.sha256`、`state/done/W2.6.done.json` |
-| W3（paused，第二轮结果最终复核） | 第二轮4张重生成通过：退出码0、16/16定向hash、400/400全体hash；仅16个预期产物变化，384个保持旧hash，第二轮前4×4产物已备份，GPU峰值5180 MiB并释放。无GT复核页 `127.0.0.1:8771` 已就绪，当前0/4 | `reports/W3_targeted_correction_round2_generation.json`、`reports/W3_targeted_correction_round2_outputs.sha256`、`reports/W3_sam_point_outputs.sha256`、`state/active_run.json` |
+| W3 | **passed_with_persistent_sam_failures_excluded**：100张真实点标注全部保留；96张使用点+三值伪标签，4张持续失败样本降级为point-only并由机器清单阻断伪标签损失。最终复核4/4均revise但问题已按排除策略闭环；W4未启动 | `reports/W3_acceptance.json`、`manifests/weak_supervision/w3_training_eligibility_v1.csv`、`manifests/weak_supervision/w3_persistent_sam_failures_v1.csv`、`state/done/W3.done.json` |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
 
@@ -146,7 +146,8 @@
 
 **当前状态：**
 
-- `state/progress.yaml` 已更新为 **W3 / targeted_correction_round2_human_review paused**。第二轮生成配置hash `0c4711d7…89453`，报告status=passed；复核页为 `http://127.0.0.1:8771/`，tmux `qas_w3_correction_round2_review`，复核配置hash `885899e4…101f6`，当前0/4。
+- `state/progress.yaml` 已更新为 **W3 / complete passed**，完成模式为 `passed_with_persistent_sam_failures_excluded`。验收报告 `reports/W3_acceptance.json`，done marker `state/done/W3.done.json`；W4无done marker、无运行产物。
+- `manifests/weak_supervision/w3_training_eligibility_v1.csv` 是后续训练的强制入口：100行唯一ID，其中96行 `point_plus_tristate / pseudo_label_eligible=true`，4行 `point_only / false`。4张保留的SAM产物仅供审计，不得静默重新启用。
 - 修正后复核配置hash为 `30e981ed…08f9f`，13份记录全部通过ID、格式、配置hash和 `dense_gt_used=false` 校验；结论9 accept、4 revise。复核报告为 `reports/W3_targeted_correction_review.json`，第二轮清单hash为 `e48dd728…a54a4`。
 - W2.4 预声明12变体：候选匹配阈值 `{0.05,0.10,0.20,0.30}` × 融合系数 `{0.25,0.50,0.75}`；固定选择目标 `J=Sα−MAE+0.1×Boundary-F`，配置 hash `d13a8a59…`。生成器未读 GT，独立 evaluator 访问恰好100张开发 GT。
 - 选中 `t10_l25`（阈值0.10，融合系数0.25）；同 evaluator 重算 W1 为 Sα 0.5333 / MAE 0.0903 / Boundary-F 0.5149，融合为 Sα 0.5408 / MAE 0.0912 / Boundary-F 0.5014，因此 W2.4 科学 Go 门槛失败。
@@ -163,7 +164,7 @@
 
 ## 6. 未决事项（按优先级）
 
-1. **W3 第二轮4张最终复核（paused，0/4）**：打开 `http://127.0.0.1:8771/`，不看GT逐张判断通过或仍需修正；若仍有 revise，继续定向闭环。4/4且所有问题解决前不能完成W3或进入W4。
+1. **W4预检尚未启动**：只有用户明确下令后才能从96张伪标签合格样本中构建64张过拟合集；必须读取 `w3_training_eligibility_v1.csv`，不得让4张point-only样本进入三值伪标签损失。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
 4. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
@@ -337,6 +338,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-02 20:12 | Codex | v4.8 | W3修正后人工复核验收完成：13/13记录合法且未使用GT，结论9 accept、4 revise；52/52定向hash与400/400全体hash复验通过。冻结仅含4张未解决样本的第二轮清单（hash `e48dd728…a54a4`），状态暂停等待下一轮点修正，不写W3 done、不进入W4 |
 | 2026-11-03 10:47 | Codex | v4.9 | W3第二轮4张定向修正页就绪：冻结配置hash `ade0711b…ea6f5`，页面从第一轮修正点继续编辑，只提供原图和当前错误结果、不提供GT；4任务、两类媒体及禁止无改动保存均验收，当前0/4。SSH隧道已恢复至8770，暂停等待人工输入 |
 | 2026-11-03 11:03 | Codex | v5.0 | W3第二轮4张重生成通过并暂停等待最终复核：退出码0，仅预期16个产物变化，其余384个hash保持；16/16定向hash、400/400全体hash和4×4备份验收通过，GPU峰值5180 MiB并释放。部署无GT复核页（hash `885899e4…101f6`），当前0/4，不写W3 done、不进入W4 |
+| 2026-11-03 11:42 | Codex | v5.1 | W3完成闭环：最终4/4仍为revise，按用户确认停止继续加点并冻结为persistent SAM failure；生成100行训练资格清单，96张point+tristate、4张point-only且禁止伪标签损失。最终hash、GT防火墙、验收报告与done marker均通过，W3状态passed，W4未启动 |
 
 ### 11.3 冲突处理
 
