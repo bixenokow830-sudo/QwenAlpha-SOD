@@ -1,8 +1,8 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v4.8
+**版本：** v4.9
 
-**更新时间：** 2026-11-02 20:12（Asia/Shanghai）
+**更新时间：** 2026-11-03 10:47（Asia/Shanghai）
 
 **维护规则：** 本文件是所有 agent 的**强制活文档**。任何 `running / paused / failed / nogo / passed` 状态、下一步、冻结协议或安全恢复点发生变化时，必须在同一原子步骤内更新本文件。完成步骤时须在 §11 变更日志追加一行，并同步更新 §0 速览、§2 进度表、§6 未决事项。长任务逐文件进度由 HTML 监控和日志承担，不为每个进度点提交本文。**未更新本文的步骤视为未收尾。**
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | 原 Qwen VAE 主线 S2.3 已判 **No-go**；非全监督新路线 **W0、W1、W2.0–W2.6 已完成**；**W3 修正后人工复核已完成13/13，结论9张通过、4张仍需第二轮定向修正** |
+| 项目现在在哪一步 | 原 Qwen VAE 主线 S2.3 已判 **No-go**；非全监督新路线 **W0、W1、W2.0–W2.6 已完成**；**W3 第二轮4张无GT定向修正页面已就绪，暂停等待人工修改（0/4）** |
 | 最重要的一组数 | 13份复核记录全部通过格式、ID、配置hash和GT禁用校验；9 accept、4 revise。未解决样本为 `ORSSD/0297`、`EORSSD/0297`、`ORSI-4199/916`、`EORSSD/1152`；当前52/52定向产物与400/400全体产物hash仍一致 |
-| 下一步唯一动作 | 为冻结的4张第二轮清单准备无GT点修正页面，再由用户只修正这4张。不得写W3 done或进入W4 |
+| 下一步唯一动作 | 打开 `http://127.0.0.1:8770/`，基于第一轮点击只修正4张未解决样本；完成前不得写W3 done或进入W4 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -70,7 +70,7 @@
 | W2.4 | 12个预声明 Qwen+SAM 变体执行与验收通过；选中 `t10_l25`，但ΔSα +0.0075、MAE/Boundary-F均略退化，冻结科学 Go 门槛未通过 | `reports/W2.4_qwen_sam_fusion.json`、`reports/W2.4_qwen_sam_grid_metrics.csv`、`state/done/W2.4.done.json` |
 | W2.5 | 100张 DINOv2 特征与3个预声明变体验收通过；选中 `d75`，相比 W2.4 有小幅改善，但相比 W1 仅ΔSα +0.0120且 MAE/Boundary-F仍略差，冻结 W2 Go 门槛失败 | `reports/W2.5_qwen_sam_dino_fusion.json`、`reports/W2.5_selected_predictions.sha256`、`state/done/W2.5.done.json` |
 | W2.6 | GT-assisted 候选/点提示上限诊断通过；贪心 oracle IoU 0.7293（small 0.6503），模拟点提示 IoU 0.7532（small 0.7891），两项均过冻结门槛，推荐真实弱点阶段；该结果不是无监督成绩 | `reports/W2.6_sam_oracle_point_diagnostic.json`、`reports/W2.6_predictions.sha256`、`state/done/W2.6.done.json` |
-| W3（paused，第二轮修正待执行） | 修正后无GT人工复核13/13完成：9 accept、4 revise；复核记录及两套输出hash复验无误。4张未解决样本已冻结为第二轮清单，W3未关闭、W4未启动 | `reports/W3_targeted_correction_review.json`、`reports/W3_targeted_correction_review_records.sha256`、`manifests/weak_supervision/w3_targeted_corrections_round2_v1.csv`、`state/active_run.json` |
+| W3（paused，第二轮修正等待人工输入） | 仅含4张未解决样本的无GT点修正页 `127.0.0.1:8770` 已通过4任务、原图/当前结果媒体和“禁止无改动保存”验收；从第一轮修正点继续编辑，当前0/4。W3未关闭、W4未启动 | `configs/weak_supervision/w3_targeted_correction_round2_v1.json`、`manifests/weak_supervision/w3_targeted_corrections_round2_v1.csv`、`state/active_run.json` |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
 
@@ -146,7 +146,7 @@
 
 **当前状态：**
 
-- `state/progress.yaml` 已更新为 **W3 / targeted_correction_round2_pending paused**。定向生成报告为 passed，52/52定向hash和400/400全体hash均通过；13×4份旧产物位于 `runs/weak_supervision/W3/pre-targeted-correction-v1`，GPU已释放。
+- `state/progress.yaml` 已更新为 **W3 / targeted_correction_round2_annotation paused**。第二轮页面为 `http://127.0.0.1:8770/`，tmux `qas_w3_correction_round2`，配置hash `ade0711b…ea6f5`，当前0/4；未使用GPU或GT。
 - 修正后复核配置hash为 `30e981ed…08f9f`，13份记录全部通过ID、格式、配置hash和 `dense_gt_used=false` 校验；结论9 accept、4 revise。复核报告为 `reports/W3_targeted_correction_review.json`，第二轮清单hash为 `e48dd728…a54a4`。
 - W2.4 预声明12变体：候选匹配阈值 `{0.05,0.10,0.20,0.30}` × 融合系数 `{0.25,0.50,0.75}`；固定选择目标 `J=Sα−MAE+0.1×Boundary-F`，配置 hash `d13a8a59…`。生成器未读 GT，独立 evaluator 访问恰好100张开发 GT。
 - 选中 `t10_l25`（阈值0.10，融合系数0.25）；同 evaluator 重算 W1 为 Sα 0.5333 / MAE 0.0903 / Boundary-F 0.5149，融合为 Sα 0.5408 / MAE 0.0912 / Boundary-F 0.5014，因此 W2.4 科学 Go 门槛失败。
@@ -163,7 +163,7 @@
 
 ## 6. 未决事项（按优先级）
 
-1. **W3 第二轮4张定向修正（paused）**：基于 `manifests/weak_supervision/w3_targeted_corrections_round2_v1.csv` 为4张未解决样本准备无GT点修正页面；保留第一轮修正、复核记录、备份与当前输出。问题全部解决前不能完成W3或进入W4。
+1. **W3 第二轮4张定向修正（paused，0/4）**：打开 `http://127.0.0.1:8770/`；漏检区域加前景点、多余前景区域加背景点，右键删除最近点。页面拒绝无改动保存。4/4后只对这4张重新生成并再次复核；此前不能完成W3或进入W4。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
 4. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
@@ -335,6 +335,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-02 20:02 | Codex | v4.6 | W3 13张修正记录验收并启动定向重生成：4张纯背景为0前景+足量背景，9张存在真实点变更；冻结生成配置（hash `71feed34…3375a`），GPU 1启动时空闲24121 MiB且无进程。旧13份结果先备份，仅重写13份，87份保持不变；单卡wrapper/tmux运行 |
 | 2026-11-02 20:06 | Codex | v4.7 | W3定向重生成通过并暂停等待复核：4张全背景+9张SAM结果已落盘，52/52定向hash、400/400全体hash与13×4备份均验收，GPU峰值5178 MiB并已释放；部署无GT修正后复核页（hash `30e981ed…08f9f`），当前0/13，不写W3 done、不进入W4 |
 | 2026-11-02 20:12 | Codex | v4.8 | W3修正后人工复核验收完成：13/13记录合法且未使用GT，结论9 accept、4 revise；52/52定向hash与400/400全体hash复验通过。冻结仅含4张未解决样本的第二轮清单（hash `e48dd728…a54a4`），状态暂停等待下一轮点修正，不写W3 done、不进入W4 |
+| 2026-11-03 10:47 | Codex | v4.9 | W3第二轮4张定向修正页就绪：冻结配置hash `ade0711b…ea6f5`，页面从第一轮修正点继续编辑，只提供原图和当前错误结果、不提供GT；4任务、两类媒体及禁止无改动保存均验收，当前0/4。SSH隧道已恢复至8770，暂停等待人工输入 |
 
 ### 11.3 冲突处理
 
