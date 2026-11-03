@@ -1,8 +1,8 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v5.3
+**版本：** v5.4
 
-**更新时间：** 2026-11-03 11:53（Asia/Shanghai）
+**更新时间：** 2026-11-03 12:02（Asia/Shanghai）
 
 **维护规则：** 本文件是所有 agent 的**强制活文档**。任何 `running / paused / failed / nogo / passed` 状态、下一步、冻结协议或安全恢复点发生变化时，必须在同一原子步骤内更新本文件。完成步骤时须在 §11 变更日志追加一行，并同步更新 §0 速览、§2 进度表、§6 未决事项。长任务逐文件进度由 HTML 监控和日志承担，不为每个进度点提交本文。**未更新本文的步骤视为未收尾。**
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | 原 Qwen VAE 主线 S2.3 已判 **No-go**；非全监督路线 **W0–W3 已完成**；**W4 attempt2 正在GPU 1从step 0运行**，W5未启动 |
-| 最重要的一组数 | W4从96张合格样本冻结64张：48训练+16验证，三数据集和八类难例全覆盖，point-only混入0；训练manifest不含GT字段，损失方向与ignore单元测试通过。配置hash `9331abc7…855ff` |
-| 下一步唯一动作 | 等待 `qas_w4` 唯一退出事件，验收step 1/10/100/500 checkpoint、弱点满足率、独立16张GT验证、反事实下降和≤22GB显存；不得自动进入W5 |
+| 项目现在在哪一步 | 原 Qwen VAE 主线 S2.3 已判 **No-go**；非全监督路线 **W0–W4 已完成并通过**；W5未启动 |
+| 最重要的一组数 | W4用48张弱监督训练、16张独立GT验证：弱点满足率1.0000（932/932），验证 Sα 0.6325 / MAE 0.0518 / Fmax 0.8160 / Boundary-F 0.2631，较W1 Sα +0.1013；打乱/纯黑反事实 Sα 0.1175/0.0006；训练dense-GT访问0，峰值456 MiB |
+| 下一步唯一动作 | 保持W4完成态；仅在用户明确指令后执行W5，执行前重新读取计划、预检GPU并先更新监控页；不得自动启动 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -71,7 +71,7 @@
 | W2.5 | 100张 DINOv2 特征与3个预声明变体验收通过；选中 `d75`，相比 W2.4 有小幅改善，但相比 W1 仅ΔSα +0.0120且 MAE/Boundary-F仍略差，冻结 W2 Go 门槛失败 | `reports/W2.5_qwen_sam_dino_fusion.json`、`reports/W2.5_selected_predictions.sha256`、`state/done/W2.5.done.json` |
 | W2.6 | GT-assisted 候选/点提示上限诊断通过；贪心 oracle IoU 0.7293（small 0.6503），模拟点提示 IoU 0.7532（small 0.7891），两项均过冻结门槛，推荐真实弱点阶段；该结果不是无监督成绩 | `reports/W2.6_sam_oracle_point_diagnostic.json`、`reports/W2.6_predictions.sha256`、`state/done/W2.6.done.json` |
 | W3 | **passed_with_persistent_sam_failures_excluded**：100张真实点标注全部保留；96张使用点+三值伪标签，4张持续失败样本降级为point-only并由机器清单阻断伪标签损失。最终复核4/4均revise但问题已按排除策略闭环；W4未启动 | `reports/W3_acceptance.json`、`manifests/weak_supervision/w3_training_eligibility_v1.csv`、`manifests/weak_supervision/w3_persistent_sam_failures_v1.csv`、`state/done/W3.done.json` |
-| W4（running） | 预检通过并启动：从96张伪标签合格样本按冻结seed分层选64张（EORSSD/ORSI-4199/ORSSD=21/34/9），48 train + 16 val；point-only=0。冻结DINOv2-B编码器、训练轻量decoder，step 1/10/100/500分别checkpoint+评估，阶段间做resume-dry-run；训练禁读GT，独立evaluator仅可读16张冻结val GT | `reports/W4_preflight.json`、`configs/weak_supervision/w4_overfit_v1.json`、`manifests/weak_supervision/w4_overfit64_v1.csv`、`monitor/w4.log` |
+| W4 | **passed**：48 train + 16 val、point-only=0；step 1/10/100/500检查点均可重载且哈希一致。最终弱点满足率1.0000，验证Sα 0.6325（较W1 +0.1013），打乱/纯黑反事实分别下降0.5150/0.6319，峰值456 MiB；训练dense-GT访问0，独立评估读取16张GT | `reports/W4_acceptance.json`、`reports/W4_resume_validation.json`、`reports/W4_artifacts.sha256`、`state/done/W4.done.json` |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
 
@@ -110,7 +110,15 @@
 
 三数据集分组 Sα：EORSSD 0.5986（38张）、ORSI-4199 0.4747（51张）、ORSSD 0.5608（11张）。small 子集 21张，Sα 0.5203、MAE 0.0040。这是**开发基线**，不是官方测试结果。100张冻结 RGBA 输出均已按 BT.601 派生为单通道灰度图，没有重跑模型。
 
-### 3.3 参照线
+### 3.4 W4 弱监督64张过拟合与损失验证
+
+| 训练/验证 | 弱点满足率 | 验证 Sα | MAE | Fmax | Boundary-F | 峰值显存 |
+|---:|---:|---:|---:|---:|---:|---:|
+| 48 / 16 | **1.0000**（932/932） | **0.6325** | **0.0518** | **0.8160** | **0.2631** | 456 MiB |
+
+验证 Sα 较 W1 参照 0.5312 提升 **+0.1013**。打乱输入与纯黑输入的 Sα 分别为 0.1175、0.0006，相对正确输入下降 0.5150、0.6319，说明模型确实使用图像内容。训练访问审计中 dense GT 为0；16张GT只由独立 evaluator 在训练后读取，因此该结果仍是开发阶段的弱监督验证，不是官方测试集最终成绩。
+
+### 3.5 参照线
 
 - 传统全监督方法：约 **0.90**（具体数值必须取自原文表格，尚待录入）。
 - 计划书 S6 目标线：Sα ≥ 0.92、MAE ≤ 0.010。
@@ -134,7 +142,7 @@
 
 **协议出处：** `paper/QwenAlpha-SOD_S2.4_零样本显著图基线协议.md`。
 
-**后续非全监督主路线：** `paper/QwenAlpha-SOD_非全监督主路线详细计划书.md`。该计划采用 Qwen 语义先验、SAM 边界提议、DINOv2 一致性、点/涂鸦弱标注和直接灰度学生网络；尚未启动训练。
+**后续非全监督主路线：** `paper/QwenAlpha-SOD_非全监督主路线详细计划书.md`。该计划采用 Qwen 语义先验、SAM 边界提议、DINOv2 一致性、点/涂鸦弱标注和直接灰度学生网络；W4小样本训练与损失验证已通过，W5主训练尚未启动。
 
 ---
 
@@ -148,7 +156,8 @@
 **当前状态：**
 
 - W3 已以 `passed_with_persistent_sam_failures_excluded` 完成；验收报告为 `reports/W3_acceptance.json`，done marker 为 `state/done/W3.done.json`。
-- W4 `w4_overfit64_v1` 已在tmux `qas_w4` 中通过单卡wrapper运行，物理GPU 1启动前空闲24118 MiB且无计算进程；GPU 0上的他人进程未触碰。训练配置hash `9331abc7…855ff`，64张manifest hash `ab384cff…9cca8`，独立16张评估GT manifest hash `9f693586…43c6b`。
+- W4 `overfit64-v1` 已通过并闭环：`state/done/W4.done.json`、`reports/W4_acceptance.json`、`reports/W4_resume_validation.json` 与 `reports/W4_artifacts.sha256` 全部复验一致；四个检查点均可重载，逐文件哈希无不匹配。最终checkpoint为 `runs/weak_supervision/W4/overfit64-v1/checkpoints/step_0500.pt`。
+- W4训练配置hash `9331abc7…7855ff`，64张manifest hash `ab384cff…9cca8`，独立16张评估GT manifest hash `9f693586…43c6b`。训练dense-GT访问0、评估GT 16张；GPU 1已释放（收尾时18 MiB、利用率0%），GPU 0上的他人进程未触碰。
 - W4 attempt1 在首个optimizer step之前因PIL `mode=I`不接受int8三值数组而退出1，无checkpoint、无参数更新；日志保留为 `monitor/w4_attempt1.log`。attempt2仅把resize输入转换为int32，实际读取验证为`{-1,0,1}`不变；数据、loss、阈值、seed和配置hash均未改变，GPU重新预检后从step 0恢复。
 - `manifests/weak_supervision/w3_training_eligibility_v1.csv` 是后续训练的强制入口：100行唯一ID，其中96行 `point_plus_tristate / pseudo_label_eligible=true`，4行 `point_only / false`。4张保留的SAM产物仅供审计，不得静默重新启用。
 - 修正后复核配置hash为 `30e981ed…08f9f`，13份记录全部通过ID、格式、配置hash和 `dense_gt_used=false` 校验；结论9 accept、4 revise。复核报告为 `reports/W3_targeted_correction_review.json`，第二轮清单hash为 `e48dd728…a54a4`。
@@ -167,7 +176,7 @@
 
 ## 6. 未决事项（按优先级）
 
-1. **W4运行中**：等待唯一退出事件后核验四个checkpoint、恢复dry-run、弱点满足率≥99%、验证Sα较W1参照至少+0.02、打乱/纯黑反事实Sα各下降≥0.05、峰值≤22GB与训练GT访问为0；任一科学门槛失败则W4记No-go并停止W5。
+1. **W5尚未启动**：只能在用户明确指令后按计划执行；启动前重做GPU预检、建立监控ready状态，并以W4 done marker为恢复点。不得因W4通过而自动进入W5。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
 4. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
@@ -276,6 +285,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 - 零样本能出图，但**质量有限**：10张配对探针 Sα 0.5900，冻结100张开发基线 Sα 0.5312，距传统方法约 0.37。
 - 这 0.3 的差距就是论文要证明的"创新处理"的价值所在。
 - 主路线已定为**非全监督**（Qwen + SAM + DINOv2 + 点/涂鸦 + 直接灰度学生），不再走全监督微调；GT 只做一次性评测。
+- W4已证明当前弱监督损失链路能够在64张小样本上稳定学习：验证 Sα 0.6325、较W1 +0.1013，反事实和GT防火墙均通过；这支持进入W5，但不代表已达到最终方法成绩。
 - 一切比较都必须同集、同口径、配对统计；基线只测一次。
 
 ---
@@ -344,6 +354,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-03 11:42 | Codex | v5.1 | W3完成闭环：最终4/4仍为revise，按用户确认停止继续加点并冻结为persistent SAM failure；生成100行训练资格清单，96张point+tristate、4张point-only且禁止伪标签损失。最终hash、GT防火墙、验收报告与done marker均通过，W3状态passed，W4未启动 |
 | 2026-11-03 11:51 | Codex | v5.2 | W4预检通过并启动：冻结48 train+16 val（point-only=0、三数据集和八类难例覆盖），损失与ignore单测通过；训练进程禁读GT、独立评估仅访问16张val GT。GPU 1启动前空闲24118 MiB，单卡wrapper/tmux运行step 1/10/100/500与恢复/反事实验收，W5未启动 |
 | 2026-11-03 11:53 | Codex | v5.3 | W4 attempt1在step1前因PIL三值resize的int8兼容错误退出1，无checkpoint/参数更新；保留日志并验证int32转换后值域仍为{-1,0,1}。GPU 1重新预检空闲，attempt2只应用该兼容修复并从step0启动，科学协议与配置hash不变 |
+| 2026-11-03 12:02 | Codex | v5.4 | W4完成并通过：step 1/10/100/500检查点重载与全产物哈希复验通过；弱点满足率1.0000，16张验证Sα 0.6325（较W1 +0.1013），打乱/纯黑反事实显著下降，训练dense-GT访问0、峰值456 MiB。done/progress/NEXT_ACTION/监控一致，GPU 1释放，W5未启动 |
 
 ### 11.3 冲突处理
 
