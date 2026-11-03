@@ -1,8 +1,8 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v5.6
+**版本：** v5.7
 
-**更新时间：** 2026-11-03 14:14（Asia/Shanghai）
+**更新时间：** 2026-11-03 14:18（Asia/Shanghai）
 
 **维护规则：** 本文件是所有 agent 的**强制活文档**。任何 `running / paused / failed / nogo / passed` 状态、下一步、冻结协议或安全恢复点发生变化时，必须在同一原子步骤内更新本文件。完成步骤时须在 §11 变更日志追加一行，并同步更新 §0 速览、§2 进度表、§6 未决事项。长任务逐文件进度由 HTML 监控和日志承担，不为每个进度点提交本文。**未更新本文的步骤视为未收尾。**
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | 原 Qwen VAE 主线 S2.3 已判 **No-go**；非全监督路线 **W0–W4 已完成并通过**；W5的500张真实弱标注已验收，SAM点/涂鸦三值伪标签正在GPU 1生成，W6未启动 |
-| 最重要的一组数 | W5真实弱标注500/500：4756前景点、8198背景点、397前景涂鸦、352背景涂鸦，20张人工确认空场景；100张指定难例全部满足涂鸦要求，500张图像与标注hash、坐标、GT/模拟禁用均通过 |
-| 下一步唯一动作 | 等待tmux `qas_w5_pseudo`唯一退出事件，验收500套NPZ/mask/三值PNG/audit、逐文件hash、弱标注像素一致性、GT访问审计与峰值显存；不得自动启动W5学生训练或W6 |
+| 项目现在在哪一步 | 原 Qwen VAE 主线 S2.3 已判 **No-go**；非全监督路线 **W0–W4 已完成并通过**；W5伪标签attempt1因2张前景/背景涂鸦交叉而安全停止，当前暂停等待定向修正，W6未启动 |
+| 最重要的一组数 | 500张中498张无冲突；第219张 `ORSI-4199/train/689` 有106个交叉像素，第229张 `ORSI-4199/train/219` 有17个，点与涂鸦之间冲突为0。已有218套伪标签产物保留，GPU 1已释放（15 MiB、0%） |
+| 下一步唯一动作 | 在 `http://127.0.0.1:8772/` 修正两张红色警告任务：保留点，清除全部涂鸦后重画至少1条前景和1条背景涂鸦且不要相交，分别保存；完成后显式通知agent复验。不得自动判定类别、恢复生成、训练或进入W6 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -72,7 +72,7 @@
 | W2.6 | GT-assisted 候选/点提示上限诊断通过；贪心 oracle IoU 0.7293（small 0.6503），模拟点提示 IoU 0.7532（small 0.7891），两项均过冻结门槛，推荐真实弱点阶段；该结果不是无监督成绩 | `reports/W2.6_sam_oracle_point_diagnostic.json`、`reports/W2.6_predictions.sha256`、`state/done/W2.6.done.json` |
 | W3 | **passed_with_persistent_sam_failures_excluded**：100张真实点标注全部保留；96张使用点+三值伪标签，4张持续失败样本降级为point-only并由机器清单阻断伪标签损失。最终复核4/4均revise但问题已按排除策略闭环；W4未启动 | `reports/W3_acceptance.json`、`manifests/weak_supervision/w3_training_eligibility_v1.csv`、`manifests/weak_supervision/w3_persistent_sam_failures_v1.csv`、`state/done/W3.done.json` |
 | W4 | **passed**：48 train + 16 val、point-only=0；step 1/10/100/500检查点均可重载且哈希一致。最终弱点满足率1.0000，验证Sα 0.6325（较W1 +0.1013），打乱/纯黑反事实分别下降0.5150/0.6319，峰值456 MiB；训练dense-GT访问0，独立评估读取16张GT | `reports/W4_acceptance.json`、`reports/W4_resume_validation.json`、`reports/W4_artifacts.sha256`、`state/done/W4.done.json` |
-| W5（running） | B级500张真实点/涂鸦已全部验收：4756前景点、8198背景点、397前景涂鸦、352背景涂鸦、20空场景；W3继承75份、W5新增/补充425份，图像hash、坐标、最低标注数、指定100张涂鸦、GT/模拟禁用均通过。当前在GPU 1生成500套点/涂鸦约束SAM三值伪标签，尚未训练、无done marker | `reports/W5_annotation_acceptance.json`、`reports/W5_annotations.sha256`、`manifests/weak_supervision/w5_b500_annotation_index_v1.csv`、`monitor/w5_pseudo.log` |
+| W5（paused） | 伪标签attempt1在218/500后按安全断言停止：后续第219、229张存在前景/背景涂鸦栅格交叉（106/17像素），未擅自设置类别优先级。其余498张无冲突，218套已生成产物保留；修正页已把两张标红并加入“清除全部涂鸦”按钮。GPU 1已释放，尚未训练、无done marker | `reports/W5_annotation_conflicts.json`、`monitor/w5_pseudo.log`、`state/active_run.json`、`reports/NEXT_ACTION.md` |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
 
@@ -162,6 +162,7 @@
 - W5 B500标注配置hash `db4d0771…b8110c`，任务manifest hash `fed744c0…2ecea`。任务从3443张 `weak_train_pool` 中冻结，继承W3的100张并新增400张；100张难例按34/51/15分配涂鸦要求，空场景不会被选为涂鸦任务。任务构建访问审计未读取dense GT。
 - W5标注验收已通过：500/500、来源为W5 425份+W3继承75份，annotation index hash `b50daa8e…a6898`、500份标注hash清单 `064ef2e8…a4e78`；图像hash不匹配0、额外文件0、dense-GT使用0、模拟标注0。实测总标注页面用时7875.524秒（约131.3分钟）。
 - W5伪标签配置hash `e32f69ec…9c561f`：SAM使用全部真实点，并从每条真实涂鸦确定性采样最多8个提示点（每类总上限32），最终三值标签强制保留完整点与涂鸦像素；20张人工确认空场景跳过SAM并生成全背景标签。物理GPU 1启动前15 MiB占用、24121 MiB空闲、无计算PID、项目锁空闲；GPU 0他人进程未触碰。
+- W5伪标签attempt1退出码1：第219张触发“前景与背景弱标注像素必须同时一致”的安全断言；全量CPU诊断仅发现2张涂鸦交叉，共123像素，点—涂鸦冲突0。报告为 `reports/W5_annotation_conflicts.json`。前218套结果未损坏且保留，恢复前必须先由用户修正两张并更新标注/索引hash；不得用自动前景或背景优先级掩盖冲突。
 - W4 attempt1 在首个optimizer step之前因PIL `mode=I`不接受int8三值数组而退出1，无checkpoint、无参数更新；日志保留为 `monitor/w4_attempt1.log`。attempt2仅把resize输入转换为int32，实际读取验证为`{-1,0,1}`不变；数据、loss、阈值、seed和配置hash均未改变，GPU重新预检后从step 0恢复。
 - `manifests/weak_supervision/w3_training_eligibility_v1.csv` 是后续训练的强制入口：100行唯一ID，其中96行 `point_plus_tristate / pseudo_label_eligible=true`，4行 `point_only / false`。4张保留的SAM产物仅供审计，不得静默重新启用。
 - 修正后复核配置hash为 `30e981ed…08f9f`，13份记录全部通过ID、格式、配置hash和 `dense_gt_used=false` 校验；结论9 accept、4 revise。复核报告为 `reports/W3_targeted_correction_review.json`，第二轮清单hash为 `e48dd728…a54a4`。
@@ -180,7 +181,7 @@
 
 ## 6. 未决事项（按优先级）
 
-1. **W5伪标签生成中**：等待 `qas_w5_pseudo` 唯一退出事件后验收500套产物、访问审计、弱标注像素一致性与≤22GB显存；失败时只恢复缺失/损坏样本，不覆盖hash正确产物。验收通过后仍须停止并冻结学生训练协议，不得直接进入W6。
+1. **W5两张涂鸦冲突待人工修正**：标注页8772当前498/500；修正任务219与229时保留点、清除旧涂鸦并重画不交叉的前景/背景涂鸦各至少1条。保存后先复验交叉像素为0并重新冻结annotation index/hash，随后才允许恢复伪标签；不得自动设置类别优先级。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
 4. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
@@ -361,6 +362,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-03 12:02 | Codex | v5.4 | W4完成并通过：step 1/10/100/500检查点重载与全产物哈希复验通过；弱点满足率1.0000，16张验证Sα 0.6325（较W1 +0.1013），打乱/纯黑反事实显著下降，训练dense-GT访问0、峰值456 MiB。done/progress/NEXT_ACTION/监控一致，GPU 1释放，W5未启动 |
 | 2026-11-03 12:09 | Codex | v5.5 | W5 B500真实弱标注阶段启动并安全暂停等待人工输入：冻结500张分层任务（169/255/76），继承W3真实点100张、新增400张，指定100张非空难例补前景+背景涂鸦；八类覆盖、manifest hash、GT防火墙和页面API验收通过。当前75/500、待425，标注页8772；未生成伪标签、未训练、无W5 done，W6未启动 |
 | 2026-11-03 14:14 | Codex | v5.6 | W5真实弱标注500/500机械验收通过并启动三值伪标签生成：共4756前景点、8198背景点、397前景涂鸦、352背景涂鸦及20空场景，500张图像/标注hash、坐标、100张指定涂鸦与GT/模拟禁用均通过。冻结点+涂鸦SAM协议（hash `e32f69ec…9c561f`），GPU 1预检空闲后通过单卡锁/tmux运行；尚未训练、无W5 done，W6未启动 |
+| 2026-11-03 14:18 | Codex | v5.7 | W5伪标签attempt1在218/500后因安全断言退出1：全量诊断发现第219/229张前景—背景涂鸦分别交叉106/17像素，点—涂鸦冲突0；未自动裁决类别。218套产物保留，GPU 1释放；标注页将两张标红并提供清除涂鸦后重画，状态暂停等待人工修正，不训练、不进入W6 |
 
 ### 11.3 冲突处理
 
