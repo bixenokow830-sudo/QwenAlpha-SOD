@@ -1,8 +1,8 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v6.1
+**版本：** v6.3
 
-**更新时间：** 2026-11-05 14:27（Asia/Shanghai）
+**更新时间：** 2026-11-05 14:40（Asia/Shanghai）
 
 **维护规则：** 本文件是所有 agent 的**强制活文档**。任何 `running / paused / failed / nogo / passed` 状态、下一步、冻结协议或安全恢复点发生变化时，必须在同一原子步骤内更新本文件。完成步骤时须在 §11 变更日志追加一行，并同步更新 §0 速览、§2 进度表、§6 未决事项。长任务逐文件进度由 HTML 监控和日志承担，不为每个进度点提交本文。**未更新本文的步骤视为未收尾。**
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | 原 Qwen VAE 主线 S2.3 已判 **No-go**；非全监督路线 **W0–W4 已完成并通过**；W5的500张点/涂鸦三值伪标签已在GPU 0生成并最终验收通过，当前暂停等待冻结学生训练协议，W6未启动 |
+| 项目现在在哪一步 | 非全监督路线 **W0–W4 已完成并通过**；W5的500张三值伪标签及学生训练协议均已验收/冻结，当前 `paused`，学生训练尚未启动，W6未启动 |
 | 最重要的一组数 | 500×4类产物齐全，2000/2000哈希一致，500/500 NPZ重开与点/涂鸦像素一致性通过；非空SAM predicted-IoU均值0.8920，弱提示一致性均值0.9759，20空场景；dense-GT访问0、模拟标注0、峰值5180 MiB |
-| 下一步唯一动作 | 仅在用户明确指令后，单独冻结W5学生训练的伪标签资格、结构、优化器、loss权重、阈值、seed与开发评测协议；不得直接启动训练或W6 |
+| 下一步唯一动作 | 仅在新的明确指令后，按冻结协议实现并预检 seed-0 B500 学生训练；不得将开发100张混入训练，不得自动进入W6 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -72,7 +72,7 @@
 | W2.6 | GT-assisted 候选/点提示上限诊断通过；贪心 oracle IoU 0.7293（small 0.6503），模拟点提示 IoU 0.7532（small 0.7891），两项均过冻结门槛，推荐真实弱点阶段；该结果不是无监督成绩 | `reports/W2.6_sam_oracle_point_diagnostic.json`、`reports/W2.6_predictions.sha256`、`state/done/W2.6.done.json` |
 | W3 | **passed_with_persistent_sam_failures_excluded**：100张真实点标注全部保留；96张使用点+三值伪标签，4张持续失败样本降级为point-only并由机器清单阻断伪标签损失。最终复核4/4均revise但问题已按排除策略闭环；W4未启动 | `reports/W3_acceptance.json`、`manifests/weak_supervision/w3_training_eligibility_v1.csv`、`manifests/weak_supervision/w3_persistent_sam_failures_v1.csv`、`state/done/W3.done.json` |
 | W4 | **passed**：48 train + 16 val、point-only=0；step 1/10/100/500检查点均可重载且哈希一致。最终弱点满足率1.0000，验证Sα 0.6325（较W1 +0.1013），打乱/纯黑反事实分别下降0.5150/0.6319，峰值456 MiB；训练dense-GT访问0，独立评估读取16张GT | `reports/W4_acceptance.json`、`reports/W4_resume_validation.json`、`reports/W4_artifacts.sha256`、`state/done/W4.done.json` |
-| W5（paused） | B500三值伪标签生成与最终技术验收通过：500套NPZ/mask/三值PNG/audit、2000项hash、500份NPZ与完整点/涂鸦一致性全部通过；无GT/模拟标注，GPU 0峰值5180 MiB并已释放。W5学生训练尚未冻结/启动，无done marker；W6未启动 | `reports/W5_sam_point_scribble_tristate.json`、`reports/W5_sam_point_scribble_outputs.sha256`、`reports/W5_pseudo_final_validation.json`、`reports/NEXT_ACTION.md` |
+| W5（paused） | B500三值伪标签验收通过；学生训练协议与样本资格已冻结并验收。500张全部保留真实点/涂鸦监督，409张启用三值伪标签loss，91张降级为仅真实弱监督；开发100张与训练零重叠。未训练、无W5 done marker，W6未启动 | `configs/weak_supervision/w5_student_training_protocol_v1.json`、`manifests/weak_supervision/w5_b500_student_eligibility_v1.csv`、`reports/W5_student_protocol_freeze.json`、`reports/W5_student_protocol_artifacts.sha256` |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
 
@@ -145,6 +145,8 @@
 
 **后续非全监督主路线：** `paper/QwenAlpha-SOD_非全监督主路线详细计划书.md`。该计划采用 Qwen 语义先验、SAM 边界提议、DINOv2 一致性、点/涂鸦弱标注和直接灰度学生网络；W4小样本训练与损失验证已通过，W5主训练尚未启动。
 
+**W5学生训练冻结协议：** `configs/weak_supervision/w5_student_training_protocol_v1.json`（hash `b6a1fe39…bf005`）。冻结值包括：DINOv2-B编码器冻结、双头轻量解码器、350输入、AdamW `3e-4`、最多5000 optimizer steps、七项loss权重、EMA阈值、seed `20261105/06/07`严格串行、开发100张仅独立eevaluator读GT。伪标签资格不读GT：人工确认空场景，或弱提示一致率≥0.90且SAM predicted-IoU≥0.80。其余41张不删除，仅把伪标签loss置0。
+
 ---
 
 ## 5. 状态文件与权威性顺序
@@ -167,6 +169,7 @@
 - W5 attempt2启动前预检曾见GPU 1空闲，但包装器取得项目锁后的最终检查发现用户 `xuwenyu` 的PID 3625096已占用GPU 1约12472 MiB，故以退出码75拒绝启动；这是并发占用保护，不是模型或数据失败。未启动CUDA模型、未写新伪标签、未触碰他人进程，恢复点仍为218/500。
 - 2026-11-05用户明确授权改用GPU 0。`reports/W5_gpu0_execution_override.json` 冻结该执行级覆盖：物理卡1→0，科学配置hash、SAM权重、标注索引、提示采样、三值规则、输出目录均不变；生成器只解除硬编码卡号并从包装器环境读取实际物理卡。GPU 0启动前无进程且项目锁空闲；GPU 1与其他用户进程保持不动。
 - W5 GPU 0 attempt3退出码0并完成500/500。最终报告：非空样本SAM predicted-IoU均值0.891984、弱提示一致性均值0.975884、原始SAM完全满足弱提示306/500；平均前景/背景/ignore比例0.106524/0.868991/0.024486。四类产物各500、2000项hash不匹配0、访问审计1006条且dense-GT访问0，最终验收 `reports/W5_pseudo_final_validation.json` 通过。
+- W5学生协议冻结验收通过：500张均保留真实弱监督，409张过无GT置信门可用三值伪标签loss，91张仅真实弱监督；开发100张零重叠。配置hash可重算一致，3份冻结产物hash全过；未访问官方test、未启动训练、无W5 done、W6未启动。
 - 监控页曾因前端只读取 `progress.done` 而状态写入使用 `progress.current`，显示错误地停在0；实际生成日志与产物正常。已把完成态纠正为500/500，并在 `monitor/server.py` 加入current→done兼容转换后仅重启项目监控进程；本地8765隧道也已带保活重建。该问题未影响实验。
 - W4 attempt1 在首个optimizer step之前因PIL `mode=I`不接受int8三值数组而退出1，无checkpoint、无参数更新；日志保留为 `monitor/w4_attempt1.log`。attempt2仅把resize输入转换为int32，实际读取验证为`{-1,0,1}`不变；数据、loss、阈值、seed和配置hash均未改变，GPU重新预检后从step 0恢复。
 - `manifests/weak_supervision/w3_training_eligibility_v1.csv` 是后续训练的强制入口：100行唯一ID，其中96行 `point_plus_tristate / pseudo_label_eligible=true`，4行 `point_only / false`。4张保留的SAM产物仅供审计，不得静默重新启用。
@@ -186,7 +189,7 @@
 
 ## 6. 未决事项（按优先级）
 
-1. **W5学生训练协议尚未冻结**：必须在单独原子步骤中预声明伪标签资格规则、结构、优化器、学习率、loss λ、阈值、训练步数/checkpoint、最多3个串行seed和内部开发评测口径；冻结后方可训练。当前不得写W5 done或进入W6。
+1. **W5 seed-0实现/预检尚未执行**：必须严格读取已冻结配置和500行资格清单，先实现、单元测试、GT防火墙与GPU预检；未经新的明确指令不启动训练，不写W5 done、不进入W6。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
 4. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
@@ -296,6 +299,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 - 这 0.3 的差距就是论文要证明的"创新处理"的价值所在。
 - 主路线已定为**非全监督**（Qwen + SAM + DINOv2 + 点/涂鸦 + 直接灰度学生），不再走全监督微调；GT 只做一次性评测。
 - W4已证明当前弱监督损失链路能够在64张小样本上稳定学习：验证 Sα 0.6325、较W1 +0.1013，反事实和GT防火墙均通过；这支持进入W5，但不代表已达到最终方法成绩。
+- W5学生训练协议已冻结，409/500可用伪标签loss、91/500安全降级为仅真实弱监督；这是训练输入口径，不是模型成绩。
 - 一切比较都必须同集、同口径、配对统计；基线只测一次。
 
 ---
@@ -372,6 +376,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-03 14:24 | Codex | v5.9 | W5 attempt2未进入模型：GPU 1在预检后被其他用户 `xuwenyu` 的PID 3625096占用约12472 MiB，单卡包装器最终硬检查以退出码75安全拒绝。新增产物0、前218套保持有效，未干预他人进程；状态暂停等待GPU空闲后从219恢复，不训练、不进入W6 |
 | 2026-11-05 14:20 | Codex | v6.0 | 按用户明确授权将W5执行卡从GPU 1切换到GPU 0：仅修改生成器的运行卡读取与资源报告，科学配置hash/协议/输出不变；GPU 0预检100 MiB占用、24027 MiB空闲、无PID、锁空闲，attempt3从219/500恢复并复用前218套。GPU 1不触碰，不训练、不进入W6 |
 | 2026-11-05 14:27 | Codex | v6.1 | W5 B500三值伪标签GPU 0 attempt3退出0并最终验收通过：四类产物各500、2000项hash与500份NPZ/点涂鸦一致性全过，dense-GT/模拟标注0、峰值5180 MiB，GPU 0释放。修复监控current/done字段不兼容并恢复8765隧道，网页现为500/500；暂停等待单独冻结学生训练协议，不写W5 done、不进入W6 |
+| 2026-11-05 14:40 | Codex | v6.3 | W5学生训练协议与资格冻结通过：500张全部保留真实弱监督，409张启用伪标签loss、91张降级；开发100张零重叠，配置/清单hash验收通过。未启动训练、无W5 done、W6未启动；下一步为单独实现与预检seed-0 B500 |
 
 ### 11.3 冲突处理
 
