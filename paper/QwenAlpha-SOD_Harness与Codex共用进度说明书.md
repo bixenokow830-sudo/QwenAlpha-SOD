@@ -1,8 +1,8 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v6.9
+**版本：** v7.1
 
-**更新时间：** 2026-11-05 15:23（Asia/Shanghai）
+**更新时间：** 2026-11-05 16:28（Asia/Shanghai）
 
 **维护规则：** 本文件是所有 agent 的**强制活文档**。任何 `running / paused / failed / nogo / passed` 状态、下一步、冻结协议或安全恢复点发生变化时，必须在同一原子步骤内更新本文件。完成步骤时须在 §11 变更日志追加一行，并同步更新 §0 速览、§2 进度表、§6 未决事项。长任务逐文件进度由 HTML 监控和日志承担，不为每个进度点提交本文。**未更新本文的步骤视为未收尾。**
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | W5 seed-0最佳Sα 0.816237，处于“仅允许修正”门槛；唯一C1小目标平衡采样修正已冻结，当前 `paused`，未实现/启动C1训练，W6未启动 |
+| 项目现在在哪一步 | C1独立2+2采样/训练/评测/恢复链路已实现并通过CPU预检，当前 `paused`；C1训练未启动，无W5 done marker，W6未启动 |
 | 最重要的一组数 | 500×4类产物齐全，2000/2000哈希一致，500/500 NPZ重开与点/涂鸦像素一致性通过；非空SAM predicted-IoU均值0.8920，弱提示一致性均值0.9759，20空场景；dense-GT访问0、模拟标注0、峰值5180 MiB |
-| 下一步唯一动作 | 仅在新的明确指令后，实现并CPU预检C1采样器差异；该步仍不启动C1训练或W6 |
+| 下一步唯一动作 | 仅在新的明确指令后，重检GPU 0/项目锁并在命名tmux中启动同seed配对C1训练；不触碰GPU 1，不启动W6 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -72,7 +72,7 @@
 | W2.6 | GT-assisted 候选/点提示上限诊断通过；贪心 oracle IoU 0.7293（small 0.6503），模拟点提示 IoU 0.7532（small 0.7891），两项均过冻结门槛，推荐真实弱点阶段；该结果不是无监督成绩 | `reports/W2.6_sam_oracle_point_diagnostic.json`、`reports/W2.6_predictions.sha256`、`state/done/W2.6.done.json` |
 | W3 | **passed_with_persistent_sam_failures_excluded**：100张真实点标注全部保留；96张使用点+三值伪标签，4张持续失败样本降级为point-only并由机器清单阻断伪标签损失。最终复核4/4均revise但问题已按排除策略闭环；W4未启动 | `reports/W3_acceptance.json`、`manifests/weak_supervision/w3_training_eligibility_v1.csv`、`manifests/weak_supervision/w3_persistent_sam_failures_v1.csv`、`state/done/W3.done.json` |
 | W4 | **passed**：48 train + 16 val、point-only=0；step 1/10/100/500检查点均可重载且哈希一致。最终弱点满足率1.0000，验证Sα 0.6325（较W1 +0.1013），打乱/纯黑反事实分别下降0.5150/0.6319，峰值456 MiB；训练dense-GT访问0，独立评估读取16张GT | `reports/W4_acceptance.json`、`reports/W4_resume_validation.json`、`reports/W4_artifacts.sha256`、`state/done/W4.done.json` |
-| W5（paused） | seed-0最佳Sα 0.816237，只允许修正。C1唯一修正已冻结：以无GT的三值伪标签前景比例 `(0,0.02]` 定义161张small-proxy，其余339张standard；每个micro-batch从均匀4张改为2+2。其他配置/标注/seed/dev100不变；接受门槛为总体Sα +0.005、small +0.02、MAE增幅≤0.002、单数据集降幅≤0.01。C1未训练，W6未启动 | `reports/W5_C1_small_object_sampler_freeze.json`、`configs/weak_supervision/w5_c1_small_object_balanced_sampling_v1.json`、`manifests/weak_supervision/w5_c1_small_object_sampling_v1.csv` |
+| W5（paused） | C1独立实现/预检通过：2000个micro-batch/8000次抽样严格2+2，small/standard各4000，批500张全覆盖且无重复；确定性与resume序列一致、GT防火墙、checkpoint roundtrip、单卡launcher均通过。基线代码/运行产物hash未变，C1 run目录不存在，未启动GPU/W6 | `reports/W5_C1_sampler_preflight.json`、`reports/W5_C1_preflight_artifacts.sha256`、`scripts/weak_supervision/run_w5_c1_seed0.sh` |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
 
@@ -173,6 +173,7 @@
 - W5 seed-0实现/预检最终通过：配置hash不变，Python编译与bash launcher语法、数据解码/增强、GT防火墙、七项loss有限反传、91张伪标签loss置0、checkpoint/resume、单卡wrapper接线均通过。可训练参数1,869,698；预检瞬时GPU 0为102 MiB/0%且项目锁空闲，GPU 1有他人负载未触碰；真正启动前必须重检。attempt1/2是预检器列名/自检误报，无GPU、无训练checkpoint，日志保留。
 - W5 seed-0训练验收通过：退出0，冻结早停在2750 step生效，最佳step 1250的Sα/MAE/Fmax/Boundary-F/IoU为0.816237/0.022035/0.862000/0.612809/0.743555，相较W1的Sα提升+0.285037。分组中small仅0.597262，明显是优先修正点；EORSSD/ORSI-4199/ORSSD分别0.744142/0.863401/0.846620。训练访问审66011条且dense-GT访问0；evaluator只读冻结dev100，官方test访问0。GPU0已回落至100 MiB/0%。
 - C1仅修正采样分布：基线22000次抽样中small-proxy实际占32.6318%，与161/500=32.2%的均匀期望一致；C1预声明提高到50%（micro-batch 2+2）。small-proxy为161张（EORSSD/ORSI-4199/ORSSD=95/45/21），其中97张可用伪标签loss。训练分池不读GT；dev GT仅用于确认small是最弱类别与后续配对验收。
+- C1.1实现不修改基线脚本：新增C1 sampler/train/evaluator/orchestrator/launcher，使用独立 `student-b500-c1-seed0-v1` run目录；checkpoint绑定C1配置hash `cf1b1c3e…79814`和采样清单hash `f2187e94…1e504`。2000个micro-batch覆盖测试全部通过，500张全部可达；预检时GPU0仅100 MiB/0%，GPU1他人负载不触碰，正式启动前仍须重检。
 - 监控页曾因前端只读取 `progress.done` 而状态写入使用 `progress.current`，显示错误地停在0；实际生成日志与产物正常。已把完成态纠正为500/500，并在 `monitor/server.py` 加入current→done兼容转换后仅重启项目监控进程；本地8765隧道也已带保活重建。该问题未影响实验。
 - W4 attempt1 在首个optimizer step之前因PIL `mode=I`不接受int8三值数组而退出1，无checkpoint、无参数更新；日志保留为 `monitor/w4_attempt1.log`。attempt2仅把resize输入转换为int32，实际读取验证为`{-1,0,1}`不变；数据、loss、阈值、seed和配置hash均未改变，GPU重新预检后从step 0恢复。
 - `manifests/weak_supervision/w3_training_eligibility_v1.csv` 是后续训练的强制入口：100行唯一ID，其中96行 `point_plus_tristate / pseudo_label_eligible=true`，4行 `point_only / false`。4张保留的SAM产物仅供审计，不得静默重新启用。
@@ -192,7 +193,7 @@
 
 ## 6. 未决事项（按优先级）
 
-1. **C1已冻结但未实现/训练**：下一原子步骤仅实现与CPU预检sampler delta，不启动GPU。后续配对训练若总体Sα增益<0.005或其他门槛失败，C1 rejected并回退seed-0基线；禁止在同一run叠加第二修正。
+1. **C1已实现/预检但未训练**：未经新指令不得启动。启动前必须重检GPU0/项目锁，使用命名tmux与 `run_single_gpu.sh 0 --`。配对训练若总体Sα增益<0.005或其他门槛失败，C1 rejected并回退seed-0基线，禁止叠加第二修正。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
 4. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
@@ -305,6 +306,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 - W5学生训练协议已冻结，409/500可用伪标签loss、91/500安全降级为仅真实弱监督；这是训练输入口径，不是模型成绩。
 - W5 seed-0已取得Sα 0.816237，较W1提升0.285037，但差0.82门槛0.003763；不得四舍五入为达标。small子集Sα 0.597262是当前主要短板，下一步仅允许一个小目标或伪标签修正方案。
 - 已选择且仅选择C1小目标平衡采样；它的价值必须由同seed、同配置的配对实验证明，冻结本身不代表已提分。
+- C1.1已证明2+2采样器实现符合冻结协议，但仍未产生任何新模型或分数；只有后续同seed配对训练才能判定C1 accepted/rejected。
 - 一切比较都必须同集、同口径、配对统计；基线只测一次。
 
 ---
@@ -385,6 +387,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-05 14:56 | Codex | v6.5 | seed-0 B500训练/独立评估/恢复/早停/单卡launcher已实现，CPU预检通过：500=409+91、dev100零重叠、GT防火墙/loss反传/checkpoint resume全过，可训练参数1,869,698。未启动GPU训练、无W5 done、W6未启动；下一步仅能在重检GPU 0后单独启动seed-0 |
 | 2026-11-05 15:12 | Codex | v6.7 | seed-0退出0并在2750 step早停，最佳1250 step：Sα 0.816237 / MAE 0.022035 / Fmax 0.862000 / Boundary-F 0.612809 / IoU 0.743555，较W1 +0.285037。11个checkpoint、1100预测、1136项hash、GT隔离与712 MiB峰值验收全过，GPU0释放。未达0.82，只允许单一修正，W6未启动 |
 | 2026-11-05 15:23 | Codex | v6.9 | 冻结唯一C1小目标平衡采样：无GT三值前景比例定义161 small-proxy/339 standard，micro-batch从均匀4改为2+2；其他所有变量不变。配对接受门槛冻结为总体Sα +0.005、small +0.02、MAE≤0.002退化、单集Sα≤0.01退化；C1未训练，W6未启动 |
+| 2026-11-05 16:28 | Codex | v7.1 | C1.1独立采样/训练/评测/恢复链路实现与CPU预检通过：2000个micro-batch/8000抽样严格2+2，500张全覆盖、无批内重复、resume序列一致；GT防火墙/checkpoint/单卡launcher全过，基线hash未变。C1未训练，W6未启动 |
 
 ### 11.3 冲突处理
 
