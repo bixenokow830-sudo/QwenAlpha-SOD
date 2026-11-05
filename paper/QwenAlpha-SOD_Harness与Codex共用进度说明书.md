@@ -1,8 +1,8 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v6.5
+**版本：** v6.7
 
-**更新时间：** 2026-11-05 14:56（Asia/Shanghai）
+**更新时间：** 2026-11-05 15:12（Asia/Shanghai）
 
 **维护规则：** 本文件是所有 agent 的**强制活文档**。任何 `running / paused / failed / nogo / passed` 状态、下一步、冻结协议或安全恢复点发生变化时，必须在同一原子步骤内更新本文件。完成步骤时须在 §11 变更日志追加一行，并同步更新 §0 速览、§2 进度表、§6 未决事项。长任务逐文件进度由 HTML 监控和日志承担，不为每个进度点提交本文。**未更新本文的步骤视为未收尾。**
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | W5 seed-0 B500 学生训练链路已实现并通过CPU预检，当前 `paused`；未启动GPU训练，无W5 done marker，W6未启动 |
+| 项目现在在哪一步 | W5 seed-0 B500 学生训练与独立验收已通过；按冻结早停规则在step 2750结束，最佳step 1250，当前 `paused`；无W5 done marker，W6未启动 |
 | 最重要的一组数 | 500×4类产物齐全，2000/2000哈希一致，500/500 NPZ重开与点/涂鸦像素一致性通过；非空SAM predicted-IoU均值0.8920，弱提示一致性均值0.9759，20空场景；dense-GT访问0、模拟标注0、峰值5180 MiB |
-| 下一步唯一动作 | 仅在新的明确指令后，重新检查GPU 0与项目锁，再经tmux和单卡wrapper启动 seed-0 B500 训练；不触碰GPU 1，不自动进入W6 |
+| 下一步唯一动作 | 仅在新的明确指令后，单独冻结一个伪标签或小目标修正方案；不增加标注预算，不同时叠加多个模块，不进入W6 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -72,7 +72,7 @@
 | W2.6 | GT-assisted 候选/点提示上限诊断通过；贪心 oracle IoU 0.7293（small 0.6503），模拟点提示 IoU 0.7532（small 0.7891），两项均过冻结门槛，推荐真实弱点阶段；该结果不是无监督成绩 | `reports/W2.6_sam_oracle_point_diagnostic.json`、`reports/W2.6_predictions.sha256`、`state/done/W2.6.done.json` |
 | W3 | **passed_with_persistent_sam_failures_excluded**：100张真实点标注全部保留；96张使用点+三值伪标签，4张持续失败样本降级为point-only并由机器清单阻断伪标签损失。最终复核4/4均revise但问题已按排除策略闭环；W4未启动 | `reports/W3_acceptance.json`、`manifests/weak_supervision/w3_training_eligibility_v1.csv`、`manifests/weak_supervision/w3_persistent_sam_failures_v1.csv`、`state/done/W3.done.json` |
 | W4 | **passed**：48 train + 16 val、point-only=0；step 1/10/100/500检查点均可重载且哈希一致。最终弱点满足率1.0000，验证Sα 0.6325（较W1 +0.1013），打乱/纯黑反事实分别下降0.5150/0.6319，峰值456 MiB；训练dense-GT访问0，独立评估读取16张GT | `reports/W4_acceptance.json`、`reports/W4_resume_validation.json`、`reports/W4_artifacts.sha256`、`state/done/W4.done.json` |
-| W5（paused） | B500伪标签/协议已冻结；seed-0训练、独立eevaluator、EMA、早停、checkpoint/resume和单卡launcher已实现。CPU预检全过：500=409伪标签loss+91仅真实弱监督，dev100零重叠，GT防火墙阻断、loss/backward有限、checkpoint恢复一致，可训练参数1,869,698<20M。未启动训练/W6 | `reports/W5_student_seed0_preflight.json`、`reports/W5_student_seed0_preflight_artifacts.sha256`、`scripts/weak_supervision/run_w5_student_seed0.sh` |
+| W5（paused） | seed-0正常退出0并在2750 step早停；最佳1250 step，Sα 0.816237 / MAE 0.022035 / Fmax 0.862000 / Boundary-F 0.612809 / IoU 0.743555，较W1 Sα +0.285037。11个checkpoint、11×100开发评测、1100预测与1136项hash全过；训练GT访问0、官方test访问0、峰值712 MiB、GPU0已释放。门槛为0.75–0.82，只允许修正，禁止W6 | `reports/W5_student_seed0_acceptance.json`、`reports/W5_student_seed0_artifacts.sha256`、`runs/weak_supervision/W5/student-b500-seed0-v1/best_checkpoint.json` |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
 
@@ -171,6 +171,7 @@
 - W5 GPU 0 attempt3退出码0并完成500/500。最终报告：非空样本SAM predicted-IoU均值0.891984、弱提示一致性均值0.975884、原始SAM完全满足弱提示306/500；平均前景/背景/ignore比例0.106524/0.868991/0.024486。四类产物各500、2000项hash不匹配0、访问审计1006条且dense-GT访问0，最终验收 `reports/W5_pseudo_final_validation.json` 通过。
 - W5学生协议冻结验收通过：500张均保留真实弱监督，409张过无GT置信门可用三值伪标签loss，91张仅真实弱监督；开发100张零重叠。配置hash可重算一致，3份冻结产物hash全过；未访问官方test、未启动训练、无W5 done、W6未启动。
 - W5 seed-0实现/预检最终通过：配置hash不变，Python编译与bash launcher语法、数据解码/增强、GT防火墙、七项loss有限反传、91张伪标签loss置0、checkpoint/resume、单卡wrapper接线均通过。可训练参数1,869,698；预检瞬时GPU 0为102 MiB/0%且项目锁空闲，GPU 1有他人负载未触碰；真正启动前必须重检。attempt1/2是预检器列名/自检误报，无GPU、无训练checkpoint，日志保留。
+- W5 seed-0训练验收通过：退出0，冻结早停在2750 step生效，最佳step 1250的Sα/MAE/Fmax/Boundary-F/IoU为0.816237/0.022035/0.862000/0.612809/0.743555，相较W1的Sα提升+0.285037。分组中small仅0.597262，明显是优先修正点；EORSSD/ORSI-4199/ORSSD分别0.744142/0.863401/0.846620。训练访问审66011条且dense-GT访问0；evaluator只读冻结dev100，官方test访问0。GPU0已回落至100 MiB/0%。
 - 监控页曾因前端只读取 `progress.done` 而状态写入使用 `progress.current`，显示错误地停在0；实际生成日志与产物正常。已把完成态纠正为500/500，并在 `monitor/server.py` 加入current→done兼容转换后仅重启项目监控进程；本地8765隧道也已带保活重建。该问题未影响实验。
 - W4 attempt1 在首个optimizer step之前因PIL `mode=I`不接受int8三值数组而退出1，无checkpoint、无参数更新；日志保留为 `monitor/w4_attempt1.log`。attempt2仅把resize输入转换为int32，实际读取验证为`{-1,0,1}`不变；数据、loss、阈值、seed和配置hash均未改变，GPU重新预检后从step 0恢复。
 - `manifests/weak_supervision/w3_training_eligibility_v1.csv` 是后续训练的强制入口：100行唯一ID，其中96行 `point_plus_tristate / pseudo_label_eligible=true`，4行 `point_only / false`。4张保留的SAM产物仅供审计，不得静默重新启用。
@@ -190,7 +191,7 @@
 
 ## 6. 未决事项（按优先级）
 
-1. **W5 seed-0尚未启动训练**：实现/预检已通过；未经新的明确指令不得启动。启动前必须重检GPU 0/项目锁，使用命名tmux + `run_single_gpu.sh 0 --`；不写W5 done、不进入W6。
+1. **W5处于修正限定门槛**：seed-0 Sα=0.816237，低于0.82。下一原子步骤只能冻结一个伪标签或小目标修正，不增加标注预算；单模块配对增益<0.005则rejected。不写W5 done、不进入W6。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
 4. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
@@ -301,7 +302,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 - 主路线已定为**非全监督**（Qwen + SAM + DINOv2 + 点/涂鸦 + 直接灰度学生），不再走全监督微调；GT 只做一次性评测。
 - W4已证明当前弱监督损失链路能够在64张小样本上稳定学习：验证 Sα 0.6325、较W1 +0.1013，反事实和GT防火墙均通过；这支持进入W5，但不代表已达到最终方法成绩。
 - W5学生训练协议已冻结，409/500可用伪标签loss、91/500安全降级为仅真实弱监督；这是训练输入口径，不是模型成绩。
-- W5 seed-0训练链路已通过CPU预检，但尚未启动GPU训练，因此仍没有新的Sα/MAE成绩。
+- W5 seed-0已取得Sα 0.816237，较W1提升0.285037，但差0.82门槛0.003763；不得四舍五入为达标。small子集Sα 0.597262是当前主要短板，下一步仅允许一个小目标或伪标签修正方案。
 - 一切比较都必须同集、同口径、配对统计；基线只测一次。
 
 ---
@@ -380,6 +381,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-05 14:27 | Codex | v6.1 | W5 B500三值伪标签GPU 0 attempt3退出0并最终验收通过：四类产物各500、2000项hash与500份NPZ/点涂鸦一致性全过，dense-GT/模拟标注0、峰值5180 MiB，GPU 0释放。修复监控current/done字段不兼容并恢复8765隧道，网页现为500/500；暂停等待单独冻结学生训练协议，不写W5 done、不进入W6 |
 | 2026-11-05 14:40 | Codex | v6.3 | W5学生训练协议与资格冻结通过：500张全部保留真实弱监督，409张启用伪标签loss、91张降级；开发100张零重叠，配置/清单hash验收通过。未启动训练、无W5 done、W6未启动；下一步为单独实现与预检seed-0 B500 |
 | 2026-11-05 14:56 | Codex | v6.5 | seed-0 B500训练/独立评估/恢复/早停/单卡launcher已实现，CPU预检通过：500=409+91、dev100零重叠、GT防火墙/loss反传/checkpoint resume全过，可训练参数1,869,698。未启动GPU训练、无W5 done、W6未启动；下一步仅能在重检GPU 0后单独启动seed-0 |
+| 2026-11-05 15:12 | Codex | v6.7 | seed-0退出0并在2750 step早停，最佳1250 step：Sα 0.816237 / MAE 0.022035 / Fmax 0.862000 / Boundary-F 0.612809 / IoU 0.743555，较W1 +0.285037。11个checkpoint、1100预测、1136项hash、GT隔离与712 MiB峰值验收全过，GPU0释放。未达0.82，只允许单一修正，W6未启动 |
 
 ### 11.3 冲突处理
 
