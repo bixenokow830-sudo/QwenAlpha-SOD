@@ -1,8 +1,8 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v7.3
+**版本：** v7.4
 
-**更新时间：** 2026-11-05 16:42（Asia/Shanghai）
+**更新时间：** 2026-11-06 11:43（Asia/Shanghai）
 
 **维护规则：** 本文件是所有 agent 的**强制活文档**。任何 `running / paused / failed / nogo / passed` 状态、下一步、冻结协议或安全恢复点发生变化时，必须在同一原子步骤内更新本文件。完成步骤时须在 §11 变更日志追加一行，并同步更新 §0 速览、§2 进度表、§6 未决事项。长任务逐文件进度由 HTML 监控和日志承担，不为每个进度点提交本文。**未更新本文的步骤视为未收尾。**
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | C1配对训练因启动后GPU0被其他用户占用而安全 `paused`；项目自身进程已停止，完成并验收至step 1250，C1最终结论尚未产生，W6未启动 |
+| 项目现在在哪一步 | C1配对训练恢复执行 `running`：GPU0空闲预检、515项partial产物及预检文件hash通过，从step1250恢复；C1最终结论尚未产生，W6未启动 |
 | 最重要的一组数 | 500×4类产物齐全，2000/2000哈希一致，500/500 NPZ重开与点/涂鸦像素一致性通过；非空SAM predicted-IoU均值0.8920，弱提示一致性均值0.9759，20空场景；dense-GT访问0、模拟标注0、峰值5180 MiB |
-| 下一步唯一动作 | 仅在新指令且GPU0无计算PID/项目锁空闲后，从 `eval_step_1250.pt` 恢复C1；不重跑250之前的step，不使用GPU1，不启动W6 |
+| 下一步唯一动作 | 检查现有tmux `qas_w5_c1_seed0` 的退出事件与新增checkpoint，完成C1配对验收；不得重复启动，不使用GPU1，不启动W6 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -37,6 +37,8 @@
 | 监控 | 远端 `127.0.0.1:8765`，本地隧道：`ssh -N -L 127.0.0.1:8765:127.0.0.1:8765 wangsiyi` |
 
 ### 1.1 已知的坑（每条都踩过）
+
+2026-11-06补充：远端监控服务也可能退出，本次重启该服务并重建隧道后HTTP200；不要因此重启训练。C1页面按浏览器请求读取训练日志末尾更新进度，无新增后台轮询；退出后显示待验收或失败，不自动宣布科学验收通过。
 
 1. **PowerShell 会破坏远端命令的引号**。含引号、中文、`|`、多行的命令一律用 base64 走 stdin：
    `$b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($script))`，然后 `ssh wangsiyi "echo $b64 | base64 -d | bash"`。
@@ -72,7 +74,7 @@
 | W2.6 | GT-assisted 候选/点提示上限诊断通过；贪心 oracle IoU 0.7293（small 0.6503），模拟点提示 IoU 0.7532（small 0.7891），两项均过冻结门槛，推荐真实弱点阶段；该结果不是无监督成绩 | `reports/W2.6_sam_oracle_point_diagnostic.json`、`reports/W2.6_predictions.sha256`、`state/done/W2.6.done.json` |
 | W3 | **passed_with_persistent_sam_failures_excluded**：100张真实点标注全部保留；96张使用点+三值伪标签，4张持续失败样本降级为point-only并由机器清单阻断伪标签损失。最终复核4/4均revise但问题已按排除策略闭环；W4未启动 | `reports/W3_acceptance.json`、`manifests/weak_supervision/w3_training_eligibility_v1.csv`、`manifests/weak_supervision/w3_persistent_sam_failures_v1.csv`、`state/done/W3.done.json` |
 | W4 | **passed**：48 train + 16 val、point-only=0；step 1/10/100/500检查点均可重载且哈希一致。最终弱点满足率1.0000，验证Sα 0.6325（较W1 +0.1013），打乱/纯黑反事实分别下降0.5150/0.6319，峰值456 MiB；训练dense-GT访问0，独立评估读取16张GT | `reports/W4_acceptance.json`、`reports/W4_resume_validation.json`、`reports/W4_artifacts.sha256`、`state/done/W4.done.json` |
-| W5（paused） | C1已完成step 250/500/750/1000/1250的5个checkpoint、5次dev100评测和500张预测；515项partial hash全过，安全恢复点是step1250。启动后用户 `xuwenyu` 在GPU0启动PID 4185146，为避免共享，仅中断项目自身tmux（exit130），对方进程未触碰。step1500无checkpoint；partial最佳step1000 Sα 0.794149，不可作最终C1结论 | `reports/W5_C1_contention_pause.json`、`reports/W5_C1_partial_artifacts.sha256`、`runs/weak_supervision/W5/student-b500-c1-seed0-v1/checkpoints/eval_step_1250.pt` |
+| W5（running） | C1于2026-11-06从step1250恢复；tmux `qas_w5_c1_seed0`已运行，新训练日志确认超过1250，GPU0项目进程约1032 MiB。已有5个checkpoint、5次dev100评测和500张预测经515项hash复检通过。attempt1因他人占卡暂停的记录完整保留；C1最终结论pending | `reports/W5_C1_contention_pause.json`、`reports/W5_C1_partial_artifacts.sha256`、`monitor/w5_c1_seed0.log`、`monitor/w5_c1_seed0_attempt1_20261105.exit` |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
 
@@ -194,7 +196,7 @@
 
 ## 6. 未决事项（按优先级）
 
-1. **C1因GPU0并发占用暂停**：下次必须重新确认GPU0无计算PID与项目锁空闲，再从step1250恢复；不得重算已完成的5个checkpoint，不得转GPU1或影响其他用户。C1尚未完成，不可提前accepted/rejected。
+1. **C1恢复运行中**：2026-11-06用户授权后，从step1250恢复；保留attempt1中断日志和exit130，日志中的重复step以checkpoint与新时间戳区分。不得重算已完成的5个checkpoint，不得转GPU1或影响其他用户。完成后须验收并更新状态，不可提前accepted/rejected。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
 4. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
@@ -390,6 +392,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-05 15:23 | Codex | v6.9 | 冻结唯一C1小目标平衡采样：无GT三值前景比例定义161 small-proxy/339 standard，micro-batch从均匀4改为2+2；其他所有变量不变。配对接受门槛冻结为总体Sα +0.005、small +0.02、MAE≤0.002退化、单集Sα≤0.01退化；C1未训练，W6未启动 |
 | 2026-11-05 16:28 | Codex | v7.1 | C1.1独立采样/训练/评测/恢复链路实现与CPU预检通过：2000个micro-batch/8000抽样严格2+2，500张全覆盖、无批内重复、resume序列一致；GT防火墙/checkpoint/单卡launcher全过，基线hash未变。C1未训练，W6未启动 |
 | 2026-11-05 16:42 | Codex | v7.3 | C1 attempt1完成并验收至step1250；运行中GPU0被用户xuwenyu新PID占用，为避免共享仅中断项目自身tmux（exit130），对方未触碰。5 checkpoint/500预测/515 hash全过，step1500无checkpoint；从1250恢复，C1结论pending，W6未启动 |
+| 2026-11-06 11:43 | Codex | v7.4 | GPU0空闲、项目锁与515项partial/预检hash复检通过，恢复C1至下一250-step分片；重启已退出的监控服务并重建本地隧道，HTTP200。保留旧exit和日志，从1250恢复，C1结论pending，W6未启动 |
 
 ### 11.3 冲突处理
 
