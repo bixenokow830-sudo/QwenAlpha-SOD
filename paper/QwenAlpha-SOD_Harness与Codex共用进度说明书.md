@@ -1,8 +1,8 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v7.8
+**版本：** v7.9
 
-**更新时间：** 2026-11-06 12:47（Asia/Shanghai）
+**更新时间：** 2026-11-06 12:50（Asia/Shanghai）
 
 **维护规则：** 本文件是所有 agent 的**强制活文档**。任何 `running / paused / failed / nogo / passed` 状态、下一步、冻结协议或安全恢复点发生变化时，必须在同一原子步骤内更新本文件。完成步骤时须在 §11 变更日志追加一行，并同步更新 §0 速览、§2 进度表、§6 未决事项。长任务逐文件进度由 HTML 监控和日志承担，不为每个进度点提交本文。**未更新本文的步骤视为未收尾。**
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | C2几何保真协议冻结、独立数据模块与CPU预检passed；4000增强检查通过，未启动训练，C1仍rejected |
+| 项目现在在哪一步 | C2执行链路与CPU恢复预检passed；GPU0启动预检有PID45102/8606 MiB占用，paused等待空闲，训练未启动 |
 | 最重要的一组数 | 500×4类产物齐全，2000/2000哈希一致，500/500 NPZ重开与点/涂鸦像素一致性通过；非空SAM predicted-IoU均值0.8920，弱提示一致性均值0.9759，20空场景；dense-GT访问0、模拟标注0、峰值5180 MiB |
-| 下一步唯一动作 | 按 `paper/QwenAlpha-SOD_C2弱标注几何保真协议.md` 接入独立C2训练/评测/checkpoint恢复与监控链路，再经GPU0/项目锁预检启动单次配对实验；本步未训练，保留seed0，不叠加C1，不启动W6 |
+| 下一步唯一动作 | 重新确认GPU0无计算PID/项目锁空闲后，以tmux `qas_w5_c2_seed0` 运行 `bash scripts/weak_supervision/run_w5_c2_seed0_tmux.sh`；检查已有run/进程再启动，勿重复CPU预检。无后台轮询，不启动W6 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -85,6 +85,8 @@
 **C1后诊断（passed）：** `reports/W5_C1_failure_diagnosis.json`、`reports/W5_C1_diagnosis_artifacts.sha256`、`state/done/W5.C1_DIAG.done.json`。500训练样本/4000增强+100开发样本，训练GT与官方test未访问。首次350缩放使12/480非空图失去所有前景弱像素；small-proxy增强后前景缺失5.12%。dev small召回/精确率：基线80.18%/53.51%，C1 82.29%/52.03%。诊断通过不改变C1拒绝结论。
 
 ## 3. 关键数字（一页看完）
+
+**C2执行链路（CPU预检passed，训练paused）：** `reports/W5_C2_execution_preflight.json`、`reports/W5_C2_execution_artifacts.sha256`、`state/done/W5.C2_EXEC_PREFLIGHT.done.json`。独立train/evaluate/orchestrate/runtime与tmux脚本已部署；实际checkpoint/restore函数在CPU小模型上验证optimizer/EMA/scheduler/RNG下一步一致，错误配置/清单拒绝。完整GPU模型恢复尚未实测。训练和评测算法文本除数据模块/配置hash/输出与审计路径外保持基线一致，GPU启动条件不满足，run尚未创建。
 
 **C2实现与CPU预检（passed）：** `reports/W5_C2_preflight.json`、`reports/W5_C2_preflight_artifacts.sha256`、`state/done/W5.C2_PREFLIGHT.done.json`。500×8增强，3840非空图增强中前景弱信号完全丢失124→10；99887个视野内点保留检查通过、3745个视野外点排除、冲突像素0；图像/三值伪标签保持一致，数据层重复seed一致，训练GT访问0。此结果不是模型精度提升，完整训练checkpoint恢复尚待后续链路验证。
 
@@ -200,7 +202,7 @@
 
 ## 6. 未决事项（按优先级）
 
-1. **C2 CPU预检通过，训练待执行**：独立geometry/dataset模块已实现，协议及实现hash冻结；下一步接入独立训练链路，确保checkpoint绑定C2 hash并实际验证恢复。总体+0.005、small+0.02与退化门槛已冻结；一次实验未达标停止此配置继续叠加。剩余10个无前景增强不能等同于缩放丢点，裁剪外点不回填。原seed0与C1保留，W6未获准。
+1. **C2等待GPU0**：执行链路/CPU恢复预检已通过，GPU0预检占用故未启动，历史占用不能替代下次实时检查。独立run为 `student-b500-c2-seed0-v1`，配置hash `69c544e2…f5dce`，从头训练、基线均匀采样；完整GPU恢复仍需实测。总体+0.005、small+0.02与退化门槛已冻结，未达标则停止此配置继续叠加，W6未获准。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
 4. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
@@ -401,6 +403,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-06 12:34 | Codex | v7.6 | C1 CPU验收完成：14检查点可重载、1400 PNG、1442 hash、汇总指标/早停/GT审计通过；总体与small增益不达冻结阈值，C1 rejected，保留seed0。首轮验收脚本误用ema字段，按实际ema_student修正后通过，错误日志保留；未改训练产物，未创建科学通过done marker，未启动W6 |
 | 2026-11-06 12:42 | Codex | v7.7 | 完成500×8弱监督几何诊断与dev100既有预测诊断，发现首次缩放前景弱信号丢失12/480及小目标精确率低；提出单一C2坐标变换保真及止损门槛，记录伪标签密集质量/训练预测证据缺口。未训练、未访问训练GT或test，诊断done与状态一致 |
 | 2026-11-06 12:47 | Codex | v7.8 | C2协议与独立数据模块完成，4000组CPU预检通过：前景弱信号缺失124→10，图像与伪标签逐像素一致，随机序列一致，视野内点检查及视野外点排除通过。首轮数据模块缺私有函数导入已修复并保留日志；训练未启动，模型精度待验证 |
+| 2026-11-06 12:50 | Codex | v7.9 | 部署C2独立训练/评测/恢复与checkpoint级监控链路；CPU实际checkpoint函数续步一致、错误hash拒绝，基线算法对比通过。GPU0预检PID45102占8606 MiB，按隔离要求paused；训练run未创建，无后台轮询 |
 
 ### 11.3 冲突处理
 

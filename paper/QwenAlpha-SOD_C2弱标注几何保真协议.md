@@ -30,4 +30,6 @@ CPU预检实际结果：500张×8增强全部通过；3840个非空图增强中�
 
 本步不训练。下一原子步需接入独立训练/评测/恢复与监控链路并通过启动预检，检查GPU0及项目锁；使用单卡包装器，显存≤22GB。
 
+2026-11-06执行更新：上述链路已部署，CPU checkpoint/restore函数续步检查通过，完整GPU模型恢复尚待运行验证。训练脚本为 `w5_c2_train.py`，评测为 `w5_c2_evaluate.py`，编排为 `w5_c2_orchestrate.py`，均在 `scripts/weak_supervision/`。启动入口 `bash scripts/weak_supervision/run_w5_c2_seed0_tmux.sh`，须在 `qas_w5_c2_seed0` tmux内执行。GPU0预检有占用，已暂停，未创建训练run；下次需重新检查GPU0与锁，不能依据此处历史占用判断。
+
 相对原seed0最佳结果，总体Sα提升≥0.005、小目标提升≥0.02、MAE增加≤0.002、每数据集Sα下降≤0.01才采纳。评估选择和早停沿用基线，不改阈值或seed追逐结果。未达标则保留seed0，停止此配置继续堆叠修正。通过也须单独授权才能启动W6。
