@@ -1,8 +1,8 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v7.5
+**版本：** v7.6
 
-**更新时间：** 2026-11-06 12:30（Asia/Shanghai）
+**更新时间：** 2026-11-06 12:34（Asia/Shanghai）
 
 **维护规则：** 本文件是所有 agent 的**强制活文档**。任何 `running / paused / failed / nogo / passed` 状态、下一步、冻结协议或安全恢复点发生变化时，必须在同一原子步骤内更新本文件。完成步骤时须在 §11 变更日志追加一行，并同步更新 §0 速览、§2 进度表、§6 未决事项。长任务逐文件进度由 HTML 监控和日志承担，不为每个进度点提交本文。**未更新本文的步骤视为未收尾。**
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | C1训练已正常早停于step3500，exit0，`awaiting_validation`；最佳step2000 Sα 0.817936，产物与配对门槛待验收，W6未启动 |
+| 项目现在在哪一步 | C1验收完成：产物完整性passed，科学门槛rejected（nogo）；保留原seed0基线，W6未启动 |
 | 最重要的一组数 | 500×4类产物齐全，2000/2000哈希一致，500/500 NPZ重开与点/涂鸦像素一致性通过；非空SAM predicted-IoU均值0.8920，弱提示一致性均值0.9759，20空场景；dense-GT访问0、模拟标注0、峰值5180 MiB |
-| 下一步唯一动作 | 完成C1产物与配对门槛验收；训练已经结束，不得重复启动，不启动W6 |
+| 下一步唯一动作 | 保留seed0最佳step1250；等待用户单独授权后续诊断/新协议提案。不得在C1同一run叠加修正，不启动W6 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -74,7 +74,7 @@
 | W2.6 | GT-assisted 候选/点提示上限诊断通过；贪心 oracle IoU 0.7293（small 0.6503），模拟点提示 IoU 0.7532（small 0.7891），两项均过冻结门槛，推荐真实弱点阶段；该结果不是无监督成绩 | `reports/W2.6_sam_oracle_point_diagnostic.json`、`reports/W2.6_predictions.sha256`、`state/done/W2.6.done.json` |
 | W3 | **passed_with_persistent_sam_failures_excluded**：100张真实点标注全部保留；96张使用点+三值伪标签，4张持续失败样本降级为point-only并由机器清单阻断伪标签损失。最终复核4/4均revise但问题已按排除策略闭环；W4未启动 | `reports/W3_acceptance.json`、`manifests/weak_supervision/w3_training_eligibility_v1.csv`、`manifests/weak_supervision/w3_persistent_sam_failures_v1.csv`、`state/done/W3.done.json` |
 | W4 | **passed**：48 train + 16 val、point-only=0；step 1/10/100/500检查点均可重载且哈希一致。最终弱点满足率1.0000，验证Sα 0.6325（较W1 +0.1013），打乱/纯黑反事实分别下降0.5150/0.6319，峰值456 MiB；训练dense-GT访问0，独立评估读取16张GT | `reports/W4_acceptance.json`、`reports/W4_resume_validation.json`、`reports/W4_artifacts.sha256`、`state/done/W4.done.json` |
-| W5（awaiting_validation） | C1正常早停step3500、exit0；C1_index记录14次评测，最佳step2000 Sα 0.817936、MAE 0.021741、small Sα 0.603760。监控原按3500/5000显示70%，现改为训练结束、待验收；新增产物完整性与科学门槛尚未正式验收 | `runs/weak_supervision/W5/student-b500-c1-seed0-v1/C1_index.json`、`monitor/w5_c1_seed0.exit`、`monitor/w5_c1_seed0.log` |
+| W5（C1 nogo） | 14 checkpoint/1400 PNG/1442 hash通过；3500步早停核实。最佳step2000 Sα 0.817936、MAE 0.021741、small 0.603760；较基线总体+0.001699<0.005、small+0.006498<0.02，MAE与单集退化门槛通过，故C1 rejected，保留seed0 | `reports/W5_C1_acceptance.json`、`reports/W5_C1_final_artifacts.sha256` |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
 
@@ -196,7 +196,7 @@
 
 ## 6. 未决事项（按优先级）
 
-1. **C1训练结束，待验收**：正常早停step3500、exit0，最佳step2000。须核验新增产物及配对门槛后形成正式结论；保留attempt1中断日志和exit130，重复step按checkpoint与时间戳区分。禁止因70%显示重复启动训练。
+1. **C1已拒绝，基线保留**：总体/小目标提升均未达冻结门槛；保留全部实验产物，不叠加其他修正。W5尚未满足进入W6的门槛；后续诊断或新协议须另行明确授权。验收训练审计89967条未命中blocked dense-GT，评估2800条全部限于dev100；14次记录的最大显存读数9599 MiB（整卡采样值，不是独立持续峰值测量）。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
 4. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
@@ -394,6 +394,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-05 16:42 | Codex | v7.3 | C1 attempt1完成并验收至step1250；运行中GPU0被用户xuwenyu新PID占用，为避免共享仅中断项目自身tmux（exit130），对方未触碰。5 checkpoint/500预测/515 hash全过，step1500无checkpoint；从1250恢复，C1结论pending，W6未启动 |
 | 2026-11-06 11:43 | Codex | v7.4 | GPU0空闲、项目锁与515项partial/预检hash复检通过，恢复C1至下一250-step分片；重启已退出的监控服务并重建本地隧道，HTTP200。保留旧exit和日志，从1250恢复，C1结论pending，W6未启动 |
 | 2026-11-06 12:30 | Codex | v7.5 | 一次检查确认C1正常早停3500、exit0、最佳step2000；70%源于最大5000步分母，不是卡住。监控和状态统一为训练结束待验收，未重启训练，未执行W6 |
+| 2026-11-06 12:34 | Codex | v7.6 | C1 CPU验收完成：14检查点可重载、1400 PNG、1442 hash、汇总指标/早停/GT审计通过；总体与small增益不达冻结阈值，C1 rejected，保留seed0。首轮验收脚本误用ema字段，按实际ema_student修正后通过，错误日志保留；未改训练产物，未创建科学通过done marker，未启动W6 |
 
 ### 11.3 冲突处理
 
