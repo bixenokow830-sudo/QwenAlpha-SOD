@@ -30,7 +30,7 @@
 
 ## 接手与恢复
 
-R0 已验收。100 张开发图对应的三类缓存共 300 份均通过哈希核验，现有 407 张训练候选与开发集样本 ID 无交集，既有 S2.4 探针未命中训练候选。R1 仍需按图像哈希排重并复核弱目标。按 W1 实测均值估算，R2 的 32 张生成约需 37 分钟，另计加载与落盘。远端依据为 `reports/R0_refiner_preflight.json`，下一步 R1。
+R0 和 R1 已验收。冻结训练清单为 `manifests/weak_supervision/r1_refiner_train32_v1.csv`，协议为 `configs/weak_supervision/r1_refiner_protocol_v1.json`。EORSSD、ORSI-4199、ORSSD 分别 10、14、8 张，其中 11 张小目标、3 张空场景。视觉复核同层替换 5 张。C/D 各 500 步，批量 4。评分门槛已按本计划冻结。下一步 R2，按 W1 实测均值估算 32 张生成约需 37 分钟，另计加载与落盘。远端依据为 `reports/R1_refiner_freeze_acceptance.json`。
 
 每次按用户指定的一个原子步骤执行。先读根目录 AGENTS.md、共用进度说明书、本计划和远端 `reports/NEXT_ACTION.md`。以 `state/done/R*.done.json`、实际产物、配置哈希和退出码为验收依据。未验收的运行保留断点和失败日志。开始前更新 8765 监控为 ready，启动后为 running，长任务使用具名单卡 tmux 和退出信号。记录状态变化即可，逐图进度进入日志和 HTML。
 
