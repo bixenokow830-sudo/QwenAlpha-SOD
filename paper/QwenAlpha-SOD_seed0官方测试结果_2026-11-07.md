@@ -16,3 +16,9 @@
 这是**seed0单模型、单seed的一次性官方测试**。原计划W6要求dev Sα≥0.82，seed0为0.816237，W6的1000张扩展和全训练池弱监督未执行；W7自训练、多seed统计、完整W8协议及W9消融均未完成。用户要求以seed0完成后续任务，本次执行了可在锁定模型后独立完成的官方测试，不能把未执行阶段写为完成。不得根据这份测试结果改选C1/C2或调参后再报同一次官方测试为独立结果。
 
 远端权威证据：`reports/W5_seed0_official_test_freeze.json`、`reports/W5_seed0_official_test_acceptance.json`、`reports/W5_seed0_official_test_artifacts.sha256`、`reports/W5_seed0_official_test_bootstrap.json`、`state/done/W5.SEED0_TEST.done.json`。
+
+## 测试后描述性审计
+
+按官方测试清单已有的GT前景面积比例分组：面积≤2%的806张Sα **0.558276**；2%–20%的1381张为**0.768502**；>20%的790张为**0.804962**；22张空场景约**0.999998**。这些分组只解释锁定模型的误差，不能用来重新调阈值或选择checkpoint。
+
+三个测试清单中有42组相同图像SHA-256，共84条样本记录。因此2999张合并逐图均值包含重复计权，报告时应首先展示分数据集结果。明细在远端`reports/W5_seed0_official_test_descriptive_audit.json`。这一审计没有新训练、推理或模型选择。
