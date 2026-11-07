@@ -1,8 +1,8 @@
 # QwenAlpha-SOD：任意节点移交 Harness 续执行说明书
 
-**版本：** v2.0
+**版本：** v2.1
 
-**更新日期：** 2026-10-29
+**更新日期：** 2026-11-07
 
 **本地工作区：** `D:\BaiduSyncdisk\CSCD\Qwenalpha-SOD`
 
@@ -14,6 +14,8 @@
 **唯一 GitHub 同步仓库：** `https://github.com/bixenokow830-sudo/QwenAlpha-SOD.git`
 
 ## 1. 用途与接管原则
+
+**2026-11-07 新路线入口：** 用户现要求直接微调 Qwen-Image-2.1 以提高原图＋提示词生成显著图的 Sα。执行前先读 `paper/QwenAlpha-SOD_Qwen本体LoRA显著图适配分步与双Agent交接计划_2026-11-07.md` 和共用进度说明书；本文件以下旧 S2.1 快照仅为历史，不代表当前状态。原始 Qwen 同集对照由用户暂停在529/2999、exit130；Qwen rank4 LoRA 仅通过 CPU 结构烟测，真实 GPU 训练未开始。新路线默认弱监督（真实点／涂鸦＋SAM 伪标签），训练使用完整像素 GT 时须另列全监督分支。Codex 或 DeepSeek Harness 接手时每次只执行用户指定的一个 Q 步骤。
 
 本说明书用于在任意阶段、任意分片、任意 checkpoint 或任意实验种子完成后，把尚未完成的工作交给 Harness 继续执行。它不是一次性提示词，也不表示 Harness 已经获得自动执行权限；每次接管仍须由用户明确发起。
 

@@ -1,6 +1,6 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v9.6
+**版本：** v9.7
 
 **更新时间：** 2026-11-07（Asia/Shanghai）
 
@@ -8,7 +8,7 @@
 
 **用途：** 供任意 agent（DeepSeek Harness、Codex 或后续接手者）在**不读历史聊天**的前提下恢复到可执行状态。本文件与远端状态文件互为校验；两者冲突时以**实际产物**为准，并回写本文件。
 
-**当前计划版本：** `paper/QwenAlpha-SOD_非全监督主路线详细计划书.md` v1.0（W0–W9 系列），提交 `1840208`。该计划把主路线从"全监督微调"改为"非全监督"，并新增 W 编号体系。
+**当前计划版本：** 新目标采用 `paper/QwenAlpha-SOD_Qwen本体LoRA显著图适配分步与双Agent交接计划_2026-11-07.md` v1.0（Q0–Q7）；旧 W0–W9 计划保留作历史路线。用户要直接改进 Qwen 模型本身，而非继续把独立学生网络当最终成果。
 
 ---
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | 用户要求直接改进Qwen-Image-2.1；零训练参照暂停在529/2999，exit130，529行CSV/PNG保留。Qwen生成Transformer的rank4注意力LoRA CPU结构测试通过，真实GPU训练和显存尚未验证 |
+| 项目现在在哪一步 | Qwen本体LoRA新路线Q0计划与交接协议已建立；主实验定义为点／涂鸦＋SAM伪标签的弱监督。零训练参照暂停在529/2999；rank4 LoRA仅CPU结构通过，GPU训练未开始 |
 | 最重要的一组数 | 500×4类产物齐全，2000/2000哈希一致，500/500 NPZ重开与点/涂鸦像素一致性通过；非空SAM predicted-IoU均值0.8920，弱提示一致性均值0.9759，20空场景；dense-GT访问0、模拟标注0、峰值5180 MiB |
-| 下一步唯一动作 | 明确一张训练图的目标图监督口径，再进行真实Qwen LoRA 512px单步GPU前向/反向/优化与≤22GB显存验证。CPU结构通过不代表训练可行；零训练任务仅在用户要求时续跑 |
+| 下一步唯一动作 | 按新计划执行Q1：审计B500合格弱标签并冻结黑白生成目标及未确定区域策略；随后另行请求Q2真实GPU单步。零训练任务仅在用户要求时续跑 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -86,6 +86,7 @@
 | FS参考事后官方测试（passed） | FS Sα0.750656，弱监督同2999图0.723305；分集FS 0.722935/0.751967/0.819407，2999预测/3029 hash通过。排除2条train/test重合后差0.027360；按相同图像去重后差0.027261。非盲测、单seed | `reports/W5_FS_reference_official_test_acceptance.json`、`reports/W5_FS_reference_paired_sensitivity.json`、`state/done/W5.FS_REF_TEST.done.json` |
 | 同集零训练参照（paused） | 用户要求暂停；529/2999行CSV与529张PNG一致，tmux停止、exit130、GPU进程退出；可按冻结配置从CSV续跑。未完整验收，不计算GapClosure | `reports/W5_zero_shot_official_test_freeze.json`、`reports/W5_zero_shot_official_test.csv`、`monitor/w5_zero_shot_official_test.exit` |
 | Qwen LoRA小测试（CPU结构通过，GPU待测） | 本地Qwen-Image-2.1生成Transformer为32层；rank4注意力q/k/v/out LoRA已在meta模型挂载，256个可训练张量、4,194,304参数；PEFT/Diffusers/Accelerate可用，500张训练图路径可读。尚未真实加载训练、反传或验证22GB峰值，无新Sα | `reports/W5_Qwen_LoRA_small_test_preflight.json` |
+| Q0 Qwen本体LoRA计划与交接（passed） | 冻结Q0–Q7分步、弱监督主实验定义、旧路线与新路线区别、状态事务、双Agent接管及测试后设计披露；未启动新GPU训练 | `paper/QwenAlpha-SOD_Qwen本体LoRA显著图适配分步与双Agent交接计划_2026-11-07.md`、移交说明书v2.1 |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
 
@@ -213,7 +214,7 @@
 
 ## 6. 未决事项（按优先级）
 
-1. **Qwen模型本身微调成为新目标**：当前W5学生模型没有从Qwen蒸馏，不能作为Qwen改进成果。Qwen LoRA CPU结构测试已通过；仍缺明确训练目标监督口径、真实模型GPU反传与22GB上限验证，不使用官方测试图调参。零训练同集参照暂停在529/2999，GapClosure暂不可计算；FS是在已知弱监督测试分数后设计，需披露。W6/W7/完整W8/W9仍未完成。
+1. **Qwen本体LoRA弱监督主路线已成文，Q1待执行**：当前W5学生模型没有从Qwen蒸馏。CPU结构通过；仍须审计密集伪目标、未确定区域处理，再做真实GPU反传与22GB上限验证。官方测试图不用于调参。零训练同集参照暂停在529/2999，GapClosure暂不可计算；FS是在已知弱监督测试分数后设计，需披露。旧W6/W7/完整W8/W9未完成。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
 4. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
@@ -432,6 +433,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-07 11:33 | Codex | v9.4 | 冻结同2999图P2@1024零训练参照（40步、seed按清单序号），GPU1无计算进程且项目锁空闲、监控HTTP200后通过单卡wrapper/tmux启动；远端状态/NEXT_ACTION/监控同步为running。只做事后描述性比较，等待退出与验收，不提前计算GapClosure或重选模型 |
 | 2026-11-07 22:08 | Codex | v9.5 | 用户将目标改为直接提升Qwen生成显著图能力并要求暂停长任务。零训练参照在529/2999安全停止，exit130，529行CSV/529张PNG保留、GPU进程退出；远端状态/NEXT_ACTION/监控改paused。下一步小规模Qwen LoRA可行性测试，仅训练图、不使用官方测试调参；现有学生网络不是Qwen蒸馏成果 |
 | 2026-11-07 22:10 | Codex | v9.6 | Qwen LoRA小范围CPU结构测试通过：真实配置32层生成Transformer，rank4 q/k/v/out LoRA meta挂载成功，4194304可训练参数；500张训练图入口可读。GPU真实训练、22GB峰值与Sα均未验证，状态paused等待单步GPU可行性；监控/NEXT_ACTION已同步 |
+| 2026-11-07 | Codex | v9.7 | 用户要求先制定可由Codex与DeepSeek Harness任意接管的Qwen本体LoRA详细计划；Q0–Q7新计划和移交说明书v2.1已建立。主实验明确定义为弱监督，使用真实点／涂鸦＋SAM伪标签，完整训练GT分支若启动则单列全监督。下一步Q1目标图审计；未启动新训练 |
 
 ### 11.3 冲突处理
 
