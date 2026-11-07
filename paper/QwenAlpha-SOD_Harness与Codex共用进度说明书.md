@@ -75,7 +75,6 @@
 | W3 | **passed_with_persistent_sam_failures_excluded**：100张真实点标注全部保留；96张使用点+三值伪标签，4张持续失败样本降级为point-only并由机器清单阻断伪标签损失。最终复核4/4均revise但问题已按排除策略闭环；W4未启动 | `reports/W3_acceptance.json`、`manifests/weak_supervision/w3_training_eligibility_v1.csv`、`manifests/weak_supervision/w3_persistent_sam_failures_v1.csv`、`state/done/W3.done.json` |
 | W4 | **passed**：48 train + 16 val、point-only=0；step 1/10/100/500检查点均可重载且哈希一致。最终弱点满足率1.0000，验证Sα 0.6325（较W1 +0.1013），打乱/纯黑反事实分别下降0.5150/0.6319，峰值456 MiB；训练dense-GT访问0，独立评估读取16张GT | `reports/W4_acceptance.json`、`reports/W4_resume_validation.json`、`reports/W4_artifacts.sha256`、`state/done/W4.done.json` |
 | W5（C1 nogo） | 14 checkpoint/1400 PNG/1442 hash通过；3500步早停核实。最佳step2000 Sα 0.817936、MAE 0.021741、small 0.603760；较基线总体+0.001699<0.005、small+0.006498<0.02，MAE与单集退化门槛通过，故C1 rejected，保留seed0 | `reports/W5_C1_acceptance.json`、`reports/W5_C1_final_artifacts.sha256` |
-| W5 C2（running） | 用户授权GPU1；实时预检空闲且锁可用。tmux进程已复核，GPU1项目进程约1032 MiB；首个250步训练/评测完成，监控页显示250/5000。科学结论pending | `monitor/w5_c2_seed0.log`、`state/active_run.json`、`reports/W5_C2_gpu1_execution_override.json` |
 | W5 C2（nogo） | GPU1训练退出0，2750步早停、最佳1250；11 checkpoint/1100 PNG/1133 hash及GT防火墙通过。总体Sα 0.816812，较基线+0.000575<0.005；small 0.589992，较基线−0.007270<+0.02；MAE改善0.000877、单集退化门槛通过。C2 rejected，保留seed0 | `reports/W5_C2_acceptance.json`、`reports/W5_C2_final_artifacts.sha256` |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
