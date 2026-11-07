@@ -1,6 +1,6 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v8.0
+**版本：** v8.1
 
 **更新时间：** 2026-11-07（Asia/Shanghai）
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | 用户指定GPU1；GPU1实时无计算PID、显存约1 MiB，项目锁空闲。C2专用卡号覆盖后tmux启动命令返回成功；随即SSH断开，首个训练分片尚未复核，状态暂记running_unverified |
+| 项目现在在哪一步 | C2在GPU1的tmux运行已核实；首个250步训练/评测完成，监控页HTTP200并显示250/5000。科学结论pending，W6未启动 |
 | 最重要的一组数 | 500×4类产物齐全，2000/2000哈希一致，500/500 NPZ重开与点/涂鸦像素一致性通过；非空SAM predicted-IoU均值0.8920，弱提示一致性均值0.9759，20空场景；dense-GT访问0、模拟标注0、峰值5180 MiB |
-| 下一步唯一动作 | SSH恢复后先查 `qas_w5_c2_seed0`、`monitor/w5_c2_seed0.exit`、日志、C2 run/checkpoint与GPU1；仅在确认未运行且无有效产物时考虑重启。修复8765隧道，勿重跑完成分片，不启动W6 |
+| 下一步唯一动作 | 等待现有 `qas_w5_c2_seed0` 完成或退出事件；之后核验C2产物、GT访问与冻结配对门槛。勿重复启动或重算完成分片，不启动W6 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -75,7 +75,7 @@
 | W3 | **passed_with_persistent_sam_failures_excluded**：100张真实点标注全部保留；96张使用点+三值伪标签，4张持续失败样本降级为point-only并由机器清单阻断伪标签损失。最终复核4/4均revise但问题已按排除策略闭环；W4未启动 | `reports/W3_acceptance.json`、`manifests/weak_supervision/w3_training_eligibility_v1.csv`、`manifests/weak_supervision/w3_persistent_sam_failures_v1.csv`、`state/done/W3.done.json` |
 | W4 | **passed**：48 train + 16 val、point-only=0；step 1/10/100/500检查点均可重载且哈希一致。最终弱点满足率1.0000，验证Sα 0.6325（较W1 +0.1013），打乱/纯黑反事实分别下降0.5150/0.6319，峰值456 MiB；训练dense-GT访问0，独立评估读取16张GT | `reports/W4_acceptance.json`、`reports/W4_resume_validation.json`、`reports/W4_artifacts.sha256`、`state/done/W4.done.json` |
 | W5（C1 nogo） | 14 checkpoint/1400 PNG/1442 hash通过；3500步早停核实。最佳step2000 Sα 0.817936、MAE 0.021741、small 0.603760；较基线总体+0.001699<0.005、small+0.006498<0.02，MAE与单集退化门槛通过，故C1 rejected，保留seed0 | `reports/W5_C1_acceptance.json`、`reports/W5_C1_final_artifacts.sha256` |
-| W5 C2（启动后待复核） | 用户授权GPU1；实时预检空闲且锁可用，C2执行级覆盖记录写入 `reports/W5_C2_gpu1_execution_override.json`，tmux创建命令返回成功。后续SSH连接被关闭，尚无首个checkpoint确认；科学结论pending | `monitor/w5_c2_seed0.log`、`state/active_run.json`、`reports/W5_C2_gpu1_execution_override.json` |
+| W5 C2（running） | 用户授权GPU1；实时预检空闲且锁可用。tmux进程已复核，GPU1项目进程约1032 MiB；首个250步训练/评测完成，监控页显示250/5000。科学结论pending | `monitor/w5_c2_seed0.log`、`state/active_run.json`、`reports/W5_C2_gpu1_execution_override.json` |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
 
@@ -203,7 +203,7 @@
 
 ## 6. 未决事项（按优先级）
 
-1. **C2 GPU1启动后连接中断**：GPU1独占预检与tmux启动返回成功，SSH随后关闭且8765隧道不可用；必须先查现有进程、退出码、run和checkpoint，不得因断线盲目重启。独立run为 `student-b500-c2-seed0-v1`，配置hash `69c544e2…f5dce`；完整GPU恢复和配对科学门槛仍待实测，W6未获准。
+1. **C2 GPU1训练中**：SSH恢复后证实tmux、GPU进程及首个250步分片；本地8765隧道已重建，HTTP200。不可因后续断线盲目重启；独立run为 `student-b500-c2-seed0-v1`，配置hash `69c544e2…f5dce`；完整GPU恢复和配对科学门槛仍待实测，W6未获准。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
 4. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
@@ -406,6 +406,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-06 12:47 | Codex | v7.8 | C2协议与独立数据模块完成，4000组CPU预检通过：前景弱信号缺失124→10，图像与伪标签逐像素一致，随机序列一致，视野内点检查及视野外点排除通过。首轮数据模块缺私有函数导入已修复并保留日志；训练未启动，模型精度待验证 |
 | 2026-11-06 12:50 | Codex | v7.9 | 部署C2独立训练/评测/恢复与checkpoint级监控链路；CPU实际checkpoint函数续步一致、错误hash拒绝，基线算法对比通过。GPU0预检PID45102占8606 MiB，按隔离要求paused；训练run未创建，无后台轮询 |
 | 2026-11-07 | Codex | v8.0 | 用户改指定GPU1，实时预检无计算PID、约1 MiB、锁空闲；C2专用训练/评测/launcher卡号改为1，执行覆盖和状态写入后tmux启动返回成功。随后SSH断开、监控隧道拒绝连接；启动结果待复核，不据此重启或宣称训练完成 |
+| 2026-11-07 | Codex | v8.1 | 重建本地8765隧道，页面HTTP200；SSH复核C2 tmux存活、GPU1项目进程及首个250步训练/评测，监控正确显示250/5000。继续等待现有任务事件，无轮询或重启 |
 
 ### 11.3 冲突处理
 
