@@ -1,6 +1,6 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v9.3
+**版本：** v9.4
 
 **更新时间：** 2026-11-07（Asia/Shanghai）
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | 全监督参考事后官方测试passed：2999张FS Sα0.750656，弱监督seed0同集合0.723305，差0.027351；测试后设计需明示，GapClosure仍缺同集合零训练分数 |
+| 项目现在在哪一步 | 同2999张官方测试图的冻结 P2@1024 零训练参照正在 GPU 1 运行；FS Sα0.750656、弱监督seed0 0.723305已验收。该对照为事后描述性比较，GapClosure待零训练结果验收后计算 |
 | 最重要的一组数 | 500×4类产物齐全，2000/2000哈希一致，500/500 NPZ重开与点/涂鸦像素一致性通过；非空SAM predicted-IoU均值0.8920，弱提示一致性均值0.9759，20空场景；dense-GT访问0、模拟标注0、峰值5180 MiB |
-| 下一步唯一动作 | 审阅 `paper/QwenAlpha-SOD_B500全监督事后官方测试_2026-11-07.md`；若需GapClosure，须先有同2999图同指标的零训练冻结结果；不得按已知测试分数重选模型 |
+| 下一步唯一动作 | 等待现有 `qas_w5_zero_shot_test` 退出；核验2999行、图像产物/哈希、显存与同口径指标，再计算描述性GapClosure。运行日志 `monitor/w5_zero_shot_official_test.log`；不得因SSH或监控断线重启，不得按已知测试分数重选模型 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -84,6 +84,7 @@
 | FS参考执行链路（passed，未训练） | 独立train/evaluate/orchestrate及单GPU tmux脚本接入；CPU数据确定性、项目checkpoint恢复与错误hash拒绝通过。为绑定实现hash，最终配置修订为`94f620a6…2e3058`；无GPU run | `reports/W5_FS_reference_execution_preflight.json`、`reports/W5_FS_reference_execution_artifacts.sha256`、`state/done/W5.FS_REF_EXEC_PREFLIGHT.done.json` |
 | FS参考开发集（passed） | GPU1训练退出0、3750步早停，最佳2250步dev100 Sα0.866471/MAE0.014728；15 checkpoint/1500预测/1545 hash通过，FS专用GT审计30000条均限B500。与弱监督seed0 Sα差+0.050234，FS官方test未运行 | `reports/W5_FS_reference_acceptance.json`、`reports/W5_FS_reference_final_artifacts.sha256`、`state/done/W5.FS_REF_DEV.done.json` |
 | FS参考事后官方测试（passed） | FS Sα0.750656，弱监督同2999图0.723305；分集FS 0.722935/0.751967/0.819407，2999预测/3029 hash通过。排除2条train/test重合后差0.027360；按相同图像去重后差0.027261。非盲测、单seed | `reports/W5_FS_reference_official_test_acceptance.json`、`reports/W5_FS_reference_paired_sensitivity.json`、`state/done/W5.FS_REF_TEST.done.json` |
+| 同集零训练参照（running） | 冻结W1的Qwen P2提示、1024输出、40步和单模型；官方三清单共2999图，按冻结拼接顺序用seed `20261029+index`。GPU 1单卡锁/tmux已启动；退出与完整验收前没有零训练官方分数，也不计算GapClosure | `reports/W5_zero_shot_official_test_freeze.json`、`scripts/w5_zero_shot_official_test.py`、`monitor/w5_zero_shot_official_test.log`；监控 `http://127.0.0.1:8765/` |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
 
@@ -211,7 +212,7 @@
 
 ## 6. 未决事项（按优先级）
 
-1. **GapClosure仍缺同集合零训练参照**：FS事后官方测试Sα0.750656、弱监督0.723305；零训练100张dev结果不能跨集合代入2999图公式。FS参考是已知弱监督测试分数后的设计，需披露；FS与弱监督损失也不同。2条train/test重合及42组跨源重复已做敏感性分析。W6/W7/完整W8/W9仍未完成。
+1. **同集合零训练参照运行中，GapClosure暂不可计算**：冻结P2@1024、40步、2999图单卡运行，tmux `qas_w5_zero_shot_test`，CSV逐图原子落盘。退出后必须核验完整性、哈希、显存与同口径指标；100张dev结果不能跨集合代入公式。FS是在已知弱监督测试分数后设计，需披露；FS与弱监督损失不同。2条train/test重合及42组跨源重复已做敏感性分析。W6/W7/完整W8/W9仍未完成。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
 4. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
@@ -427,6 +428,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-07 | Codex | v9.1 | FS参考3750步正常早停、最佳2250；15 checkpoint/1500 dev预测/1545 hash，30000条FS训练GT访问均限B500。dev100 Sα0.866471较弱监督+0.050234，MAE0.014728；官方FS测试未执行，GapClosure不可跨集计算 |
 | 2026-11-07 | Codex | v9.2 | FS最佳2250 checkpoint/指标代码/2999官方test清单冻结，GPU1独占预检后事后FS官方测试tmux启动、模型加载成功；弱监督官方结果已知，不作盲测声明或测试后模型选择 |
 | 2026-11-07 | Codex | v9.3 | FS事后官方测试退出0并验收2999预测/3029 hash，合并Sα0.750656，弱监督同集合0.723305，差0.027351；分集和排除train/test重合、按图像哈希去重敏感性分析完成。缺同集合零训练参照，GapClosure暂不算 |
+| 2026-11-07 11:33 | Codex | v9.4 | 冻结同2999图P2@1024零训练参照（40步、seed按清单序号），GPU1无计算进程且项目锁空闲、监控HTTP200后通过单卡wrapper/tmux启动；远端状态/NEXT_ACTION/监控同步为running。只做事后描述性比较，等待退出与验收，不提前计算GapClosure或重选模型 |
 
 ### 11.3 冲突处理
 
