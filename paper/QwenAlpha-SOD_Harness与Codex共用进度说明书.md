@@ -1,6 +1,6 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v9.1
+**版本：** v9.2
 
 **更新时间：** 2026-11-07（Asia/Shanghai）
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | 隔离B500全监督参考训练/开发集验收passed：最佳2250步dev100 Sα0.866471；弱监督seed0同集0.816237，差0.050234。FS官方测试尚未执行，官方GapClosure不可算 |
+| 项目现在在哪一步 | 全监督参考最佳2250步已锁定，GPU1独占预检后2999张事后官方测试running；弱监督seed0官方Sα0.723305已知，未来FS结果须注明测试后设计 |
 | 最重要的一组数 | 500×4类产物齐全，2000/2000哈希一致，500/500 NPZ重开与点/涂鸦像素一致性通过；非空SAM predicted-IoU均值0.8920，弱提示一致性均值0.9759，20空场景；dense-GT访问0、模拟标注0、峰值5180 MiB |
-| 下一步唯一动作 | 审阅 `paper/QwenAlpha-SOD_B500全监督开发集参照_2026-11-07.md`；若继续同集合比较，须锁定FS最佳2250后单独执行已知测试分数的事后官方测试并披露偏差。不可跨集合计算GapClosure |
+| 下一步唯一动作 | 等待tmux `qas_w5_fs_test`退出事件，核验2999预测、分集指标、产物哈希与资源；只作事后FS参照，不按官方测试重选模型 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -83,6 +83,7 @@
 | FS参考数据/损失预检（passed） | 500/500 train GT精确允许清单，500条独立FS访问审计；350增强掩码值域/尺寸、BCE+Dice有限反传通过。独立FS配置hash `95bf3959…f41f6`；尚无训练/评测链路和分数 | `reports/W5_FS_reference_CPU_preflight.json`、`reports/W5_FS_reference_preflight_artifacts.sha256`、`state/done/W5.FS_REF_PREFLIGHT.done.json` |
 | FS参考执行链路（passed，未训练） | 独立train/evaluate/orchestrate及单GPU tmux脚本接入；CPU数据确定性、项目checkpoint恢复与错误hash拒绝通过。为绑定实现hash，最终配置修订为`94f620a6…2e3058`；无GPU run | `reports/W5_FS_reference_execution_preflight.json`、`reports/W5_FS_reference_execution_artifacts.sha256`、`state/done/W5.FS_REF_EXEC_PREFLIGHT.done.json` |
 | FS参考开发集（passed） | GPU1训练退出0、3750步早停，最佳2250步dev100 Sα0.866471/MAE0.014728；15 checkpoint/1500预测/1545 hash通过，FS专用GT审计30000条均限B500。与弱监督seed0 Sα差+0.050234，FS官方test未运行 | `reports/W5_FS_reference_acceptance.json`、`reports/W5_FS_reference_final_artifacts.sha256`、`state/done/W5.FS_REF_DEV.done.json` |
+| FS参考事后官方测试（running） | 冻结FS最佳2250 checkpoint及三个测试清单；GPU1独占预检并启动2999图持久化分片评测。弱监督测试分数已知，需披露事后设计 | `reports/W5_FS_reference_official_test_freeze.json`、`monitor/w5_fs_reference_official_test.log` |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
 
@@ -210,7 +211,7 @@
 
 ## 6. 未决事项（按优先级）
 
-1. **FS参考官方测试尚缺**：dev100全监督参考Sα0.866471、弱监督0.816237，差0.050234；损失也不同，不能仅归因于标签密度。FS官方test尚未执行，官方GapClosure不可跨集计算；未来对照属已知测试结果后的设计，须披露。train/test重合2条、跨源重复42组。W6/W7/完整W8/W9仍未完成。
+1. **FS事后官方测试运行中**：FS最佳2250已在dev100选定并冻结，测试后设计须披露；不按测试成绩改选。训练/测试重合2条、跨源重复42组需敏感性分析。结果尚未验收，GapClosure暂不填；W6/W7/完整W8/W9仍未完成。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
 4. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
@@ -424,6 +425,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-07 | Codex | v8.9 | 实现独立FS训练/评测/恢复编排与GPU1 tmux入口；CPU数据确定性、checkpoint往返和错误配置拒绝通过。执行前增加实现hash核验使最终配置hash修订为94f620a6…2e3058，旧版本只作历史预检；未启动训练 |
 | 2026-11-07 | Codex | v9.0 | GPU1实时无计算PID、项目锁空闲，FS独立参考tmux启动且模型加载成功，监控HTTP200；等待分片、dev100结果与完整验收。不改弱监督seed0，不用官方test选FS模型 |
 | 2026-11-07 | Codex | v9.1 | FS参考3750步正常早停、最佳2250；15 checkpoint/1500 dev预测/1545 hash，30000条FS训练GT访问均限B500。dev100 Sα0.866471较弱监督+0.050234，MAE0.014728；官方FS测试未执行，GapClosure不可跨集计算 |
+| 2026-11-07 | Codex | v9.2 | FS最佳2250 checkpoint/指标代码/2999官方test清单冻结，GPU1独占预检后事后FS官方测试tmux启动、模型加载成功；弱监督官方结果已知，不作盲测声明或测试后模型选择 |
 
 ### 11.3 冲突处理
 
