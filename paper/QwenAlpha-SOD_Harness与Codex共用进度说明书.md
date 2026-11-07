@@ -1,6 +1,6 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v8.7
+**版本：** v8.8
 
 **更新时间：** 2026-11-07（Asia/Shanghai）
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | 修订后对照与评测协议/数据可行性审计passed；B500 500/500 train GT登记可用于隔离FS参考，尚未实现或训练。seed0官方Sα0.723305，W6/W7/完整W8/W9未完成 |
+| 项目现在在哪一步 | 隔离B500全监督参考的数据/损失配置与CPU预检passed；500张GT允许清单和专用审计通过，尚未实现完整训练链路或启动GPU。seed0官方Sα0.723305 |
 | 最重要的一组数 | 500×4类产物齐全，2000/2000哈希一致，500/500 NPZ重开与点/涂鸦像素一致性通过；非空SAM predicted-IoU均值0.8920，弱提示一致性均值0.9759，20空场景；dense-GT访问0、模拟标注0、峰值5180 MiB |
-| 下一步唯一动作 | 按 `paper/QwenAlpha-SOD_修订后对照与评测协议_2026-11-07.md` 实现隔离的B500全监督参照配置、GT审计和CPU预检；训练前冻结损失/指标/运行细节。不修改弱监督模型或用测试集选模型 |
+| 下一步唯一动作 | 实现隔离FS参考的训练/评测/checkpoint恢复链路与CPU预检；GPU训练前再查资源和项目锁。保留seed0及一次性官方测试结果，不用测试集选模型 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -80,6 +80,7 @@
 | seed0单模型官方测试（passed） | 2999/2999灰度预测、30分片、3029 hash通过；合并Sα 0.723305/MAE 0.044214。EORSSD 0.660627、ORSI-4199 0.735621、ORSSD 0.775915；单seed，仅锁定模型测试，非完整W8 | `reports/W5_seed0_official_test_acceptance.json`、`reports/W5_seed0_official_test_artifacts.sha256`、`state/done/W5.SEED0_TEST.done.json` |
 | seed0测试后描述审计（passed） | 2999张按GT面积分组：≤2% 806张Sα0.558276；2%–20% 1381张0.768502；>20% 790张0.804962；空场景22张约1.0。跨清单相同图像hash 42组/84条。仅描述，不做模型选择 | `reports/W5_seed0_official_test_descriptive_audit.json`、`state/done/W5.SEED0_TEST_AUDIT.done.json` |
 | 修订对照协议（passed） | B500 500/500 train GT登记可用于独立FS参考；训练池与官方test有2条精确图像重合，三个test清单跨源重复42组。全监督参照尚未实现/训练；GapClosure尚不可计算 | `reports/W5_revised_comparison_preflight.json`、`state/done/W5.REVISED_PROTOCOL.done.json`、`paper/QwenAlpha-SOD_修订后对照与评测协议_2026-11-07.md` |
+| FS参考数据/损失预检（passed） | 500/500 train GT精确允许清单，500条独立FS访问审计；350增强掩码值域/尺寸、BCE+Dice有限反传通过。独立FS配置hash `95bf3959…f41f6`；尚无训练/评测链路和分数 | `reports/W5_FS_reference_CPU_preflight.json`、`reports/W5_FS_reference_preflight_artifacts.sha256`、`state/done/W5.FS_REF_PREFLIGHT.done.json` |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
 
@@ -207,7 +208,7 @@
 
 ## 6. 未决事项（按优先级）
 
-1. **全监督参照待实现**：修订协议与GT登记可行性已通过，但损失/数据读取/训练代码未冻结。官方测试已使用，未来参照属于测试后制定，须明示；训练池与test重合2条、跨源重复42组需报告敏感性。W6门槛未达，W7依赖W6；完整W8/W9均未完成，GapClosure暂不可算。
+1. **全监督参照训练链路待实现**：独立GT读取/损失配置与CPU预检已通过，尚未训练。FS参考与弱监督不只标签密度不同，性能差额不可单独归因于标签。官方测试已使用，未来参照属于测试后制定；train/test重合2条、跨源重复42组需报告敏感性。W6/W7/完整W8/W9均未完成，GapClosure暂不可算。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
 4. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
@@ -417,6 +418,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-07 | Codex | v8.5 | seed0一次性官方测试完成：2999图、30分片、3029 hash全过；合并Sα 0.723305，分集0.660627/0.735621/0.775915；单模型单seed，未做W6/W7、完整W8或W9。锁定模型不根据测试结果重选 |
 | 2026-11-07 | Codex | v8.6 | 继续完成seed0官方测试的只读描述审计：small≤2%组806张Sα0.558276，三组非空面积及空场景分层报告；跨清单相同图像SHA-256共42组。仅解释锁定结果，不重选模型。W6/W7/完整W8/W9未完成，待新协议 |
 | 2026-11-07 | Codex | v8.7 | 冻结修订后对照/评测边界并审计B500 500/500 train GT登记；确认train/test精确图像重合2条、test跨源重复42组。提出隔离FS参照、同集合GapClosure与测试后设计披露；无新训练，未虚报W6/W7/W8/W9 |
+| 2026-11-07 | Codex | v8.8 | 实现隔离FS参考数据模块、GT精确允许清单与BCE+Dice损失；500张GT审计、增强尺寸/值域和CPU有限反传通过。原弱监督训练审计哈希记录，GPU训练未启动；下一步接入独立训练/评测/恢复 |
 
 ### 11.3 冲突处理
 
