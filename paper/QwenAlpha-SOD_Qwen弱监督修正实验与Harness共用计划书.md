@@ -34,4 +34,6 @@ R0 和 R1 已验收。冻结训练清单为 `manifests/weak_supervision/r1_refin
 
 每次按用户指定的一个原子步骤执行。先读根目录 AGENTS.md、共用进度说明书、本计划和远端 `reports/NEXT_ACTION.md`。以 `state/done/R*.done.json`、实际产物、配置哈希和退出码为验收依据。未验收的运行保留断点和失败日志。开始前更新 8765 监控为 ready，启动后为 running，长任务使用具名单卡 tmux 和退出信号。记录状态变化即可，逐图进度进入日志和 HTML。
 
+R2 于 2026-11-07 23:51 在远端会话 `qas_r2_refiner_cache` 启动。接手先读 `monitor/r2_refiner_cache.exit`（若已生成）、日志以及 `runs/weak_supervision/R2-refiner-cache-v1/records/`。退出码 0 和完整结果进入待验收，验收核对全部32组输出哈希后再写 R2 完成标记。连接丢失时先检查原任务。续跑只复用通过校验的逐图记录。 
+
 远端写入只在 `/data2/wangsiyi`，GPU 使用项目单卡 RTX 3090 包装器和锁，保留显存峰值不超过 22528 MiB。状态、监控、NEXT_ACTION 和共用说明书在步骤收尾时统一更新。文档同步遵循 AGENTS.md 白名单。原 Q3 适配器及独立官方零训练参照保有各自的断点。
