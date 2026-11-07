@@ -18,6 +18,8 @@
 
 2026-11-07执行补充：已冻结独立参考数据与损失配置 `configs/weak_supervision/w5_fs_reference_b500_v1.json`（hash `95bf3959…b4725d15cbf41f6`）。仅从B500精确sample ID允许清单读取train GT，使用同一350几何增强；补边为ignore。监督损失明确为有效像素BCE加soft Dice；不使用弱标注、伪标签、EMA或边界损失。与弱监督的差异不止“标签密度”，因此结果应称为“同架构B500全监督参考”，不能将性能差额单独归因于标签密度。数据模块及CPU预检通过：500/500 GT允许清单，500条独立审计记录，掩码值域/尺寸及有限反传通过。训练/评测/恢复链路仍待实现，尚无全监督分数。
 
+2026-11-07执行链路补充：现已接入独立FS train/evaluate/orchestrate及GPU1单卡tmux入口。为强制运行时核验FS数据模块实现哈希，配置在训练启动前修订为最终hash `94f620a6…2e3058`；上一hash仅对应数据/损失预检历史版本，未用于训练。CPU检查通过：同seed数据确定性、项目checkpoint/restore函数往返、错误配置拒绝、dev100评测路由与独立运行目录。权威报告`reports/W5_FS_reference_execution_preflight.json`、`reports/W5_FS_reference_execution_artifacts.sha256`。GPU训练尚未启动；完整模型checkpoint恢复仍需运行中验证。
+
 ## 评测与泄漏口径
 
 官方测试三个数据集分别报告，不以2999张合并均值代替每集结果。EORSSD与ORSSD清单有42组相同图像SHA-256，共84条记录，合并均值存在跨源重复计权。训练池与官方测试存在2条精确图像SHA-256重合（`EORSSD/test/0005`与`ORSSD/test/0005`）；主表仍展示原官方清单，另附排除这两条的敏感性分析，不静默删除或更改既有评分。相同内容跨源的重复审计还需在正式论文中披露。
