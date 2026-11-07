@@ -1,6 +1,6 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v8.4
+**版本：** v8.5
 
 **更新时间：** 2026-11-07（Asia/Shanghai）
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | 用户要求以seed0完成后续评测；seed0官方测试清单2999张与checkpoint/指标代码hash已冻结，GPU1单卡评测running。W6门槛0.82未达，故这是seed0单模型测试，不宣称W6/W7完成 |
+| 项目现在在哪一步 | seed0单模型一次性官方测试passed：2999张，合并Sα 0.723305；W6/W7、完整W8和W9未完成，C1/C2仍rejected |
 | 最重要的一组数 | 500×4类产物齐全，2000/2000哈希一致，500/500 NPZ重开与点/涂鸦像素一致性通过；非空SAM predicted-IoU均值0.8920，弱提示一致性均值0.9759，20空场景；dense-GT访问0、模拟标注0、峰值5180 MiB |
-| 下一步唯一动作 | 等待现有tmux `qas_w5_seed0_test` 退出事件，核验2999张预测、分组指标、哈希及单卡显存；禁止用测试分数再挑模型。不重复启动，不宣称多seed统计或W6/W7完成 |
+| 下一步唯一动作 | 审阅 `paper/QwenAlpha-SOD_seed0官方测试结果_2026-11-07.md`；不要根据测试分数重选模型。下一研究阶段须重新确定路线与公平全监督参照，W6准入门槛未达 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -77,7 +77,7 @@
 | W5（C1 nogo） | 14 checkpoint/1400 PNG/1442 hash通过；3500步早停核实。最佳step2000 Sα 0.817936、MAE 0.021741、small 0.603760；较基线总体+0.001699<0.005、small+0.006498<0.02，MAE与单集退化门槛通过，故C1 rejected，保留seed0 | `reports/W5_C1_acceptance.json`、`reports/W5_C1_final_artifacts.sha256` |
 | W5 C2（nogo） | GPU1训练退出0，2750步早停、最佳1250；11 checkpoint/1100 PNG/1133 hash及GT防火墙通过。总体Sα 0.816812，较基线+0.000575<0.005；small 0.589992，较基线−0.007270<+0.02；MAE改善0.000877、单集退化门槛通过。C2 rejected，保留seed0 | `reports/W5_C2_acceptance.json`、`reports/W5_C2_final_artifacts.sha256` |
 | W5复盘（passed） | seed0 checkpoint1250 SHA-256复核；C1/C2两份最终哈希清单通过。冻结保留模型，整理导师决策材料及下阶段选项；没有新训练或官方测试 | `reports/W5_route_review.json`、`state/done/W5.ROUTE_REVIEW.done.json`、`paper/QwenAlpha-SOD_W5阶段复盘与路线决策_2026-11-07.md` |
-| seed0单模型官方测试（running） | 冻结checkpoint、指标代码与三个官方test清单（EORSSD 600、ORSI-4199 2199、ORSSD 200）；GPU1独占预检通过并启动按100张持久化的tmux测试。W6/W7未执行 | `reports/W5_seed0_official_test_freeze.json`、`monitor/w5_seed0_official_test.log` |
+| seed0单模型官方测试（passed） | 2999/2999灰度预测、30分片、3029 hash通过；合并Sα 0.723305/MAE 0.044214。EORSSD 0.660627、ORSI-4199 0.735621、ORSSD 0.775915；单seed，仅锁定模型测试，非完整W8 | `reports/W5_seed0_official_test_acceptance.json`、`reports/W5_seed0_official_test_artifacts.sha256`、`state/done/W5.SEED0_TEST.done.json` |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
 
@@ -205,7 +205,7 @@
 
 ## 6. 未决事项（按优先级）
 
-1. **seed0单模型官方测试中**：用户授权以seed0推进后续评测；W6需要Sα≥0.82而当前0.816237，因此本次仅作为锁定seed0的官方测试，不能等同W6/W7或三seed结果。测试完成后不得按测试成绩改选checkpoint；仍需公平全监督参照和正式统计。
+1. **seed0官方测试已完成，后续路线待决**：合并Sα 0.723305，低于dev100的0.816237；集规模与权重不同，不能把差额全归因于过拟合。W6需要dev Sα≥0.82而当前0.816237；1000张扩展、W7、完整W8多seed和W9均未完成。测试后不得重选模型；公平全监督参照及新研究假设待冻结。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
 4. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
@@ -412,6 +412,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-07 | Codex | v8.2 | C2完成并验收：2750步早停、最佳1250，11 checkpoint/1100预测/1133 hash、训练GT访问0、开发集外评估0；总体Sα +0.000575、small −0.007270，未达预设增益，C2 rejected。原seed0保留，停止该配置修正，不启动W6 |
 | 2026-11-07 | Codex | v8.3 | W5阶段复盘完成：复核seed0 checkpoint哈希及C1/C2最终产物清单，形成导师决策材料，保留seed0、拒绝C1/C2；建议下一独立步骤为只读误差审计与公平比较协议，未启动新训练或W6 |
 | 2026-11-07 | Codex | v8.4 | 按用户要求锁定seed0后续单模型评测，冻结checkpoint、指标代码及2999张官方测试清单；GPU1独占预检后tmux启动。明确W6准入门槛未达，W6/W7及三seed统计未执行；等待测试验收 |
+| 2026-11-07 | Codex | v8.5 | seed0一次性官方测试完成：2999图、30分片、3029 hash全过；合并Sα 0.723305，分集0.660627/0.735621/0.775915；单模型单seed，未做W6/W7、完整W8或W9。锁定模型不根据测试结果重选 |
 
 ### 11.3 冲突处理
 
