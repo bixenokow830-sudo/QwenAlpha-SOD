@@ -1,8 +1,8 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v9.40
+**版本：** v9.41
 
-**更新时间：** 2026-11-08 14:16（Asia/Shanghai）
+**更新时间：** 2026-11-08 14:22（Asia/Shanghai）
 
 **维护规则：** 本文件是所有 agent 的**强制活文档**。任何 `running / paused / failed / nogo / passed` 状态、下一步、冻结协议或安全恢复点发生变化时，必须在同一原子步骤内更新本文件。完成步骤时须在 §11 变更日志追加一行，并同步更新 §0 速览、§2 进度表、§6 未决事项。长任务逐文件进度由 HTML 监控和日志承担，不为每个进度点提交本文。**未更新本文的步骤视为未收尾。**
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | R7_PROTOCOL 已通过。官方测试共 2999 张，验证可复用 529 张历史 Qwen 输出 |
+| 项目现在在哪一步 | R7_CACHE 运行中。GPU 1 单卡生成官方测试 Qwen 缓存，tmux 为 `qas_r7_official_cache` |
 | 最重要的一组数 | 500×4类产物齐全，2000/2000哈希一致，500/500 NPZ重开与点/涂鸦像素一致性通过；非空SAM predicted-IoU均值0.8920，弱提示一致性均值0.9759，20空场景；dense-GT访问0、模拟标注0、峰值5180 MiB |
-| 下一步唯一动作 | R7_CACHE。只读复用 529 张，单卡补生成 2470 张，按历史均值预计约 49.2 GPU 小时 |
+| 下一步唯一动作 | 等待 R7_CACHE 退出后验收 2999 条缓存记录。详见 8765 监控和 `reports/NEXT_ACTION.md` |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -107,6 +107,7 @@
 | R6_PREDICT 留出集预测（passed） | GPU1退出0，B/C/D各60张新预测，复用A组60张，60份SAM候选及PNG哈希核验通过。GT读取0，保留显存峰值5160 MiB | `reports/R6_holdout_predict_acceptance.json`、`state/done/R6_PREDICT.done.json` |
 | R6_SCORE 留出集评分（passed） | A/B/C/D Sα=0.5160/0.5376/0.7403/0.7244。C−D +0.0159，95%配对区间[0.0071,0.0265]。C−B MAE −0.0291、边界F −0.0092、Fmax −0.0469。Sα与MAE三项门槛通过。评分读60份GT，生成读0 | `reports/R6_holdout_score.json`、`state/done/R6_SCORE.done.json` |
 | R7_PROTOCOL（passed） | 核验三官方测试集 2999 张输入和固定 C/D 检查点。529 张历史 Qwen RGBA 可复用，未打开 GT 掩码。42 组精确重复，主结果保留全部 2999 张 | `reports/R7_official_protocol_acceptance.json`、`state/done/R7_PROTOCOL.done.json` |
+| R7_CACHE（running） | 只读复用 529 张 W5 原图并生成 2470 张缺图，预计约 49.2 GPU 小时。按逐图记录恢复 | `qas_r7_official_cache`、`monitor/r7_official_cache.log`、`runs/weak_supervision/R7-official-cache-v1/` |
 
 **S1 关键事实：** 训练对 6,999；manifest `ba11c6c3…1446a0`；2 组 train/test 精确重复 + 158 组跨源同源样本（已披露，未删除）；RGBA 派生 4,000；审计集 100；overfit 48/16。
 
@@ -235,7 +236,7 @@
 ## 6. 未决事项（按优先级）
 
 1. **Q3分支结案，Q4未获准**。三轮结果仅涵盖四张训练图，均值来自三张非空图和SAM弱标签。适配器、配置、检查点与预测保留，未做正式测试。停车场图 ORSI-4199/train/1185 暂缓。独立零训练参照暂停在529/2999，恢复须由用户指定。
-2. **R7_CACHE 待启动**。三数据集官方测试协议已冻结。新缓存只读复用 W5 的 529 张 RGBA，不恢复独立 W5 任务。余下 2470 张预计约 49.2 GPU 小时。训练与内部留出均无官方测试图像哈希重叠。后续分别执行 R7_PREDICT 和 R7_SCORE。官方测试尚无本修正器分数。
+2. **R7_CACHE 运行中**。GPU 1 通过单卡包装器和锁，独立 W5 维持暂停。退出后检查 `monitor/r7_official_cache.exit`、2999 条逐图记录、原始及亮度 PNG 哈希、显存审计和 GT 隔离。缓存验收后才可按指令执行 R7_PREDICT；若暂停，先核对旧进程和断点，归档旧日志及退出码后再续跑。
 2. **GapClosure 分母定义**：`S_full_reference` 使用传统方法最优值还是自跑全监督参照，需要在正式比较前冻结。
 3. **编号体系明确**：W 系列取代原 S3 以后训练主线；旧 S 编号只作历史追溯。
 4. **录入传统方法数值**：MCCNet / GeleNet / IPDiff 指标必须来自原文表格。
@@ -488,6 +489,7 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-08 14:07 | Codex | v9.38 | R6_PREDICT退出0，180张新预测、60张复用图和60份SAM候选验收通过。下一步R6_SCORE |
 | 2026-11-08 14:11 | Codex | v9.39 | R6_SCORE冻结留出集评分通过。C组Sα为0.7403，C−D为+0.0159。边界F照常报告，R5原判定保留，R6收尾 |
 | 2026-11-08 14:16 | Codex | v9.40 | R7_PROTOCOL 通过，冻结 2999 张官方测试图及四组对照。核验可复用 529 张，下一步 R7_CACHE，补生成 2470 张 |
+| 2026-11-08 14:22 | Codex | v9.41 | R7_CACHE 经 GPU 1 单卡包装器启动，按哈希复用 529 张 W5 原图并补 2470 张，结束后验收 |
 
 ### 11.3 冲突处理
 
