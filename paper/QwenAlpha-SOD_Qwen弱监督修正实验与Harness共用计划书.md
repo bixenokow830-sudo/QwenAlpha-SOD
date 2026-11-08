@@ -46,4 +46,6 @@ R5 于 2026-11-08 11:41 完成。100 张历史开发图上 A/B/C/D 的 Sα 分�
 
 R6_CACHE 已于 2026-11-08 14:01 验收。60 条记录、120 份 PNG 哈希和 60 张 BT.601 亮度图逐像素复算一致。依据为 `reports/R6_holdout_cache_acceptance.json`。下一步 R6_PREDICT，复用 A 组并生成固定 W2.5 与 C/D 的留出集预测。
 
+R6_PREDICT 已于 2026-11-08 14:07 验收。A/B/C/D 各 60 张，生成阶段 GT 掩码读取为 0。证据为 `reports/R6_holdout_predict_acceptance.json`。下一步 R6_SCORE 使用冻结评测清单独立评分。
+
 远端写入只在 `/data2/wangsiyi`，GPU 使用项目单卡 RTX 3090 包装器和锁，保留显存峰值不超过 22528 MiB。状态、监控、NEXT_ACTION 和共用说明书在步骤收尾时统一更新。文档同步遵循 AGENTS.md 白名单。原 Q3 适配器及独立官方零训练参照保有各自的断点。
