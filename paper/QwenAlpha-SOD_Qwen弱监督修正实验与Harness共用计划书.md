@@ -36,4 +36,6 @@ R0 和 R1 已验收。冻结训练清单为 `manifests/weak_supervision/r1_refin
 
 R2 已于 2026-11-08 11:27 验收。32 组缓存齐全，64 份 PNG 哈希和 32 张亮度图逐像素复算一致。依据为 `reports/R2_refiner_cache_acceptance.json` 和 `state/done/R2.done.json`。下一步 R3，按冻结配置做 C/D 两组短试验。
 
+R3 已于 2026-11-08 11:33 验收。远端共用实现为 `scripts/weak_supervision/r3_refiner.py`，两组短试验及恢复证据见 `reports/R3_refiner_smoke_acceptance.json`。R4 从相同的新初始化各训练 500 步，使用独立的正式检查点目录。R5 单独评分。
+
 远端写入只在 `/data2/wangsiyi`，GPU 使用项目单卡 RTX 3090 包装器和锁，保留显存峰值不超过 22528 MiB。状态、监控、NEXT_ACTION 和共用说明书在步骤收尾时统一更新。文档同步遵循 AGENTS.md 白名单。原 Q3 适配器及独立官方零训练参照保有各自的断点。
