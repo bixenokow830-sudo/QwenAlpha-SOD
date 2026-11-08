@@ -44,6 +44,6 @@ R5 于 2026-11-08 11:41 完成。100 张历史开发图上 A/B/C/D 的 Sα 分�
 
 2026-11-08 11:46，用户明确授权忽略边界 F 的推进限制。R5 原判定和数值保留。R6 已冻结三数据集各 20 张的内部留出集，来源为原训练划分，按登记的训练和开发记录及全部官方测试图做 ID 与精确哈希排重。选图按固定哈希顺序，未读取 GT 掩码。R6 报告边界 F，Sα 与 MAE 仍用冻结门槛。配置在 `configs/weak_supervision/r6_refiner_holdout_protocol_v1.json`，证据在 `reports/R6_refiner_split_acceptance.json`。接手按 R6_CACHE、四组预测、独立评分顺序逐步执行。
 
-2026-11-08 11:59，R6_CACHE 已在远端会话 `qas_r6_holdout_cache` 启动。接手先查 `monitor/r6_holdout_cache.exit`、日志及 `runs/weak_supervision/R6-holdout-cache-v1/records/`，核对全部60条记录、120份PNG与冻结配置后再推进。
+R6_CACHE 已于 2026-11-08 14:01 验收。60 条记录、120 份 PNG 哈希和 60 张 BT.601 亮度图逐像素复算一致。依据为 `reports/R6_holdout_cache_acceptance.json`。下一步 R6_PREDICT，复用 A 组并生成固定 W2.5 与 C/D 的留出集预测。
 
 远端写入只在 `/data2/wangsiyi`，GPU 使用项目单卡 RTX 3090 包装器和锁，保留显存峰值不超过 22528 MiB。状态、监控、NEXT_ACTION 和共用说明书在步骤收尾时统一更新。文档同步遵循 AGENTS.md 白名单。原 Q3 适配器及独立官方零训练参照保有各自的断点。
