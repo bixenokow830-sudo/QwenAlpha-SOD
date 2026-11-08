@@ -70,4 +70,4 @@ R7_CACHE 已暂停于 538/2999，下一条为 EORSSD/test/1848。恢复前核对
 
 C40 使用原版 Qwen-Image-2.1、P2@1024、40 步与 R4 C 检查点。C4 加载冻结的 Lightning LoRA，按开发者发布的 4 步调度生成，沿用 C 检查点。D 使用 R4 D 检查点，将 Qwen 通道置零。预热后按单张计时，从读取原图到最终 PNG 落盘。另记模型加载、Qwen 阶段、均值、中位数、P95、峰值显存及失败。完成预测后再由独立评测器读取 GT。筛选条件为 C4 端到端均值低于 15 秒、Sα 相对 C40 下降不超过 0.01，且 C4 优于 D。结果仅用于开发筛选。
 
-远端下一步见 `reports/R8_NEXT_ACTION.md`。R7 已暂停。GPU 1 在交接时空闲，实际启动前重新核验设备与主机内存。R8 使用独立输出和监控 `http://127.0.0.1:8765/r8_speed_dev30.html`。
+R8 已通过预检，在 GPU 1 的 `qas_r8_speed_dev30` 中运行。主监控为 `http://127.0.0.1:8765/`。输出为 `runs/weak_supervision/R8-speed-dev30-v1/`。结束后核验 `reports/R8_speed_dev30_result.json`、逐图记录及独立评分审计。远端交接见 `reports/R8_NEXT_ACTION.md`。R7 断点继续保留。
