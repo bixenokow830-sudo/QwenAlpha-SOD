@@ -1,8 +1,8 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v9.49
+**版本：** v9.51
 
-**更新时间：** 2026-11-11 19:58（Asia/Shanghai）
+**更新时间：** 2026-11-11 20:12（Asia/Shanghai）
 
 **维护规则：** 本文件是所有 agent 的**强制活文档**。任何 `running / paused / failed / nogo / passed` 状态、下一步、冻结协议或安全恢复点发生变化时，必须在同一原子步骤内更新本文件。完成步骤时须在 §11 变更日志追加一行，并同步更新 §0 速览、§2 进度表、§6 未决事项。长任务逐文件进度由 HTML 监控和日志承担，不为每个进度点提交本文。**未更新本文的步骤视为未收尾。**
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | 全监督 FS0_ORSSD 协议与数据冻结已通过。R8 速度筛选 no-go，R7_CACHE 暂停于 538/2999 |
+| 项目现在在哪一步 | 全监督 FS1_ORSSD CPU 预检通过。R8 速度筛选 no-go，R7_CACHE 暂停于 538/2999 |
 | 最重要的一组数 | 500×4类产物齐全，2000/2000哈希一致，500/500 NPZ重开与点/涂鸦像素一致性通过；非空SAM predicted-IoU均值0.8920，弱提示一致性均值0.9759，20空场景；dense-GT访问0、模拟标注0、峰值5180 MiB |
-| 下一步唯一动作 | FS1_ORSSD 在 CPU 接入 GeleNet/PVT 基线、训练 GT 允许清单与标准评估器，并验收恢复链路 |
+| 下一步唯一动作 | FS2_MIN 单卡冒烟前先复核存储容量。当前可用约 149 MB，单个完整检查点约 306 MB，尚无 GPU 实验排队 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -110,6 +110,7 @@
 | R6_SCORE 留出集评分（passed） | A/B/C/D Sα=0.5160/0.5376/0.7403/0.7244。C−D +0.0159，95%配对区间[0.0071,0.0265]。C−B MAE −0.0291、边界F −0.0092、Fmax −0.0469。Sα与MAE三项门槛通过。评分读60份GT，生成读0 | `reports/R6_holdout_score.json`、`state/done/R6_SCORE.done.json` |
 | R7_PROTOCOL（passed） | 核验三官方测试集 2999 张输入和固定 C/D 检查点。529 张历史 Qwen RGBA 可复用，未打开 GT 掩码。42 组精确重复，主结果保留全部 2999 张 | `reports/R7_official_protocol_acceptance.json`、`state/done/R7_PROTOCOL.done.json` |
 | R7_CACHE（paused） | 退出码 130。538 条缓存记录校验通过，其中 529 条历史复用、9 条新增。下个输入 EORSSD/test/1848 | `reports/R7_cache_user_pause.json`、`monitor/r7_official_cache.exit` |
+| FS1_ORSSD（passed，CPU） | 官方 PVT-v2-b2 权重已核验 SHA-256；真实 GeleNet 反传更新、内存完整 Adam 检查点恢复后续步参数逐张量一致、磁盘原子写入夹具通过。拒绝 3 类越权 GT，2 张开发预测标准评分有限；无 GPU 运行。当前空间不足以落盘完整检查点 | `reports/FS1_ORSSD_acceptance.json`、`state/done/FS1_ORSSD.done.json` |
 | FS0_ORSSD（passed） | 600 张训练来源图及对应 GT 的哈希、尺寸与二值掩码通过。排除 1 张精确重合和 3 张近重复候选；冻结 476 train / 60 dev / 60 holdout / 200 test。开发和留出各 16 小目标、1 空场景。标准指标冒烟通过，测试 GT 像素读取 0 | `reports/FS0_ORSSD_acceptance.json`、`state/done/FS0_ORSSD.done.json` |
 | R8_SPEED_DEV30（nogo） | 90/90 预测、计时和配对评分复核通过。C4/C40/D 平均 32.72 s/73.81 s/22.89 ms，Sα 0.6420/0.6427/0.6267。C4 精度与 Qwen 贡献门通过，速度未达到低于 15 秒 | `reports/R8_speed_dev30_acceptance.json`、`monitor/r8_speed_dev30.exit` |
 
@@ -239,7 +240,7 @@
 
 ## 6. 未决事项（按优先级）
 
-- FS1_ORSSD 待验收：接入 GeleNet/PVT 训练与评分，绑定预训练权重和实际实现哈希；公开 MCCNet 预测待获取复评。FS0 未训练或生成 Qwen 缓存。
+- FS2_MIN 待执行：核对磁盘可用空间，足够后单 RTX 3090 冒烟。FS1 CPU 完整状态在内存重载，磁盘仅测原子写入夹具；实际完整检查点为 305,942,712 字节，预检可用约 149 MB。公开 MCCNet 预测待获取复评。
 
 1. **Q3分支结案，Q4未获准**。三轮结果仅涵盖四张训练图，均值来自三张非空图和SAM弱标签。适配器、配置、检查点与预测保留，未做正式测试。停车场图 ORSI-4199/train/1185 暂缓。独立零训练参照暂停在529/2999，恢复须由用户指定。
 2. **R8_SPEED_DEV30 已收尾**。30 张历史开发图的 C4−C40 Sα 为 −0.00073，C4−D 为 +0.01530。4 步快 2.26 倍，仍未过速度门。R7 若恢复需先复核断点并归档原日志及退出码。
@@ -508,6 +509,10 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-11 19:57 | Codex | v9.48 | FS0_ORSSD 首轮数据清单已生成，标准指标冒烟因测试驱动遗漏 warnings 导入而失败；原日志归档后修复测试驱动，在同一冻结规则下继续验收 |
 
 | 2026-11-11 19:58 | Codex | v9.49 | FS0_ORSSD 通过：600 张来源 GT 审计，排除 4 张精确/近重复候选，冻结 476/60/60/200 划分及 GeleNet 训练预算，PySODMetrics 冒烟通过；远端状态、完成标记和监控一致。下一步 FS1_ORSSD CPU 预检 |
+
+| 2026-11-11 20:07 | Codex | v9.50 | 启动 FS1_ORSSD CPU 训练、评分和恢复预检；预检发现远端剩余空间不足以持久化完整 Adam 检查点，先验证内存序列化和原子落盘接口 |
+
+| 2026-11-11 20:12 | Codex | v9.51 | FS1_ORSSD CPU 验收通过：绑定官方 PVT 权重与实现哈希，真实反传、完整内存恢复续步逐值一致、GT 隔离和开发评分通过；磁盘空间限制已记录，未启动 GPU |
 
 ### 11.3 冲突处理
 
