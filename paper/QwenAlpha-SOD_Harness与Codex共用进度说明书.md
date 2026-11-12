@@ -1,8 +1,8 @@
 # QwenAlpha-SOD 共用进度说明书（Harness / Codex 通用）
 
-**版本：** v9.54
+**版本：** v9.56
 
-**更新时间：** 2026-11-11 22:00（Asia/Shanghai）
+**更新时间：** 2026-11-12 13:06（Asia/Shanghai）
 
 **维护规则：** 本文件是所有 agent 的**强制活文档**。任何 `running / paused / failed / nogo / passed` 状态、下一步、冻结协议或安全恢复点发生变化时，必须在同一原子步骤内更新本文件。完成步骤时须在 §11 变更日志追加一行，并同步更新 §0 速览、§2 进度表、§6 未决事项。长任务逐文件进度由 HTML 监控和日志承担，不为每个进度点提交本文。**未更新本文的步骤视为未收尾。**
 
@@ -16,9 +16,9 @@
 
 | 问题 | 答案 |
 |---|---|
-| 项目现在在哪一步 | 全监督 FS2_MIN 单卡冒烟已通过。R8 no-go，R7_CACHE 暂停于 538/2999 |
+| 项目现在在哪一步 | 全监督 FS2_CACHE_PREFLIGHT 已通过，缓存生成待启动。R8 no-go，R7_CACHE 暂停于 538/2999 |
 | 最重要的一组数 | 500×4类产物齐全，2000/2000哈希一致，500/500 NPZ重开与点/涂鸦像素一致性通过；非空SAM predicted-IoU均值0.8920，弱提示一致性均值0.9759，20空场景；dense-GT访问0、模拟标注0、峰值5180 MiB |
-| 下一步唯一动作 | FS2_CACHE 先冻结 ORSSD 训练/开发缓存清单并核对复用量、存储和预计时长 |
+| 下一步唯一动作 | 重新检查 GPU 1 和项目锁后，单独启动 FS2_CACHE，生成缺失的 534 张缓存 |
 | 绝不能做的事 | 重跑已有 done marker 的步骤；碰他人 GPU 进程；未经确认改冻结协议；让训练池混入 100 张开发样本 |
 
 ---
@@ -111,6 +111,7 @@
 | R7_PROTOCOL（passed） | 核验三官方测试集 2999 张输入和固定 C/D 检查点。529 张历史 Qwen RGBA 可复用，未打开 GT 掩码。42 组精确重复，主结果保留全部 2999 张 | `reports/R7_official_protocol_acceptance.json`、`state/done/R7_PROTOCOL.done.json` |
 | R7_CACHE（paused） | 退出码 130。538 条缓存记录校验通过，其中 529 条历史复用、9 条新增。下个输入 EORSSD/test/1848 | `reports/R7_cache_user_pause.json`、`monitor/r7_official_cache.exit` |
 | FS2_MIN 历史容量预检（paused） | 可用 149,213,184 字节，单份完整 Adam 检查点 305,942,712 字节，最低缺口 156,729,528 字节。GPU 0 无计算进程且项目锁可用；未启动 GPU，未写缓存或检查点 | `reports/FS2_MIN_storage_pause.json` |
+| FS2_CACHE_PREFLIGHT（passed） | 冻结 476 train + 60 dev，536 个图像哈希核验，复用 2 张，534 张待生成。按两张冒烟估算约 16.8 GPU 小时；可用约 19.7 GiB。GPU 1 当时空闲、锁可用，GT 读取 0，未启动 GPU | `reports/FS2_CACHE_PREFLIGHT_acceptance.json`、`state/done/FS2_CACHE_PREFLIGHT.done.json` |
 | FS2_MIN（passed） | GPU 0 退出 0；2/2 P2@1024、40 步缓存的 RGBA 与亮度哈希及逐像素复算通过。RGB/Qwen 两组同初始化、更新和完整 Adam 磁盘恢复逐值一致。训练允许清单 4 次访问，官方 GT 读取 0。PyTorch 保留显存最高 20,016 MiB，GPU 0 已释放 | `reports/FS2_MIN_acceptance.json`、`state/done/FS2_MIN.done.json` |
 | FS1_ORSSD（passed，CPU） | 官方 PVT-v2-b2 权重已核验 SHA-256；真实 GeleNet 反传更新、内存完整 Adam 检查点恢复后续步参数逐张量一致、磁盘原子写入夹具通过。拒绝 3 类越权 GT，2 张开发预测标准评分有限；无 GPU 运行。当前空间不足以落盘完整检查点 | `reports/FS1_ORSSD_acceptance.json`、`state/done/FS1_ORSSD.done.json` |
 | FS0_ORSSD（passed） | 600 张训练来源图及对应 GT 的哈希、尺寸与二值掩码通过。排除 1 张精确重合和 3 张近重复候选；冻结 476 train / 60 dev / 60 holdout / 200 test。开发和留出各 16 小目标、1 空场景。标准指标冒烟通过，测试 GT 像素读取 0 | `reports/FS0_ORSSD_acceptance.json`、`state/done/FS0_ORSSD.done.json` |
@@ -242,7 +243,7 @@
 
 ## 6. 未决事项（按优先级）
 
-- FS2_CACHE 待预检：仅两张 ORSSD 训练图的 P2 缓存已验收，分别耗时 92.5 秒和 134.0 秒；全量缓存前核对可复用项并估算时长。公开 MCCNet 预测待获取复评。
+- FS2_CACHE 待执行：按冻结清单在 GPU 1 补 534 张，逐图核验并保留断点。按冒烟两张估算约 13.7–19.9 GPU 小时。公开 MCCNet 预测待获取复评。
 
 1. **Q3分支结案，Q4未获准**。三轮结果仅涵盖四张训练图，均值来自三张非空图和SAM弱标签。适配器、配置、检查点与预测保留，未做正式测试。停车场图 ORSI-4199/train/1185 暂缓。独立零训练参照暂停在529/2999，恢复须由用户指定。
 2. **R8_SPEED_DEV30 已收尾**。30 张历史开发图的 C4−C40 Sα 为 −0.00073，C4−D 为 +0.01530。4 步快 2.26 倍，仍未过速度门。R7 若恢复需先复核断点并归档原日志及退出码。
@@ -521,6 +522,10 @@ S2.4 源于用户的论文构想：先测量"不做任何处理时 Qwen 生成�
 | 2026-11-11 21:52 | Codex | v9.53 | 存储恢复到约 21.35 GiB，GPU 0 预检空闲。FS2_MIN 冻结两张 ORSSD 训练图及成对冒烟，使用命名 tmux 和单卡包装器 |
 
 | 2026-11-11 22:00 | Codex | v9.54 | FS2_MIN GPU 0 退出 0，验收 2 张 P2 缓存和两组完整检查点，恢复逐值一致，保留显存峰值 20,016 MiB，GPU 已释放；只完成技术冒烟 |
+
+| 2026-11-12 13:05 | Codex | v9.55 | 开始 FS2_CACHE_PREFLIGHT，审计清单和 GPU 1 资源 |
+
+| 2026-11-12 13:06 | Codex | v9.56 | FS2_CACHE_PREFLIGHT 验收通过，冻结 536 张、复用 2 张，GPU 1 与容量预检通过；未启动批量生成 |
 
 ### 11.3 冲突处理
 
